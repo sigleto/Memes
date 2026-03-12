@@ -1,23 +1,22 @@
-import { useMeme } from "@/context/Memecontext";
+import { useMeme } from "@/context/MemeContext";
 import { Anton_400Regular, useFonts } from "@expo-google-fonts/anton";
 import Slider from "@react-native-community/slider";
 import * as ImagePicker from "expo-image-picker";
 import * as Sharing from "expo-sharing";
 import React, { useRef, useState } from "react";
-
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  Keyboard,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-
 import { captureRef } from "react-native-view-shot";
 
 import DraggableSticker from "./DraggableSticker";
@@ -28,7 +27,6 @@ const { width } = Dimensions.get("window");
 export default function MemeCanvas() {
   const [fontsLoaded] = useFonts({ MemeFont: Anton_400Regular });
 
-  // 🔹 datos globales
   const {
     image,
     setImage,
@@ -42,11 +40,36 @@ export default function MemeCanvas() {
 
   const [fontSize, setFontSize] = useState(35);
   const [textColor, setTextColor] = useState("white");
-  const [selectedStickerId, setSelectedStickerId] = useState<number | null>(null);
+  const [selectedStickerId, setSelectedStickerId] = useState<number | null>(
+    null,
+  );
+  const [isEditing, setIsEditing] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const viewRef = useRef<View>(null);
-
+  const scrollViewRef = useRef<ScrollView>(null);
   const colors = ["white", "#f1c40f", "#e74c3c", "#2ecc71", "#9b59b6", "black"];
+
+  // Manejadores para el teclado
+  React.useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      },
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => {
+        setKeyboardHeight(0);
+      },
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   if (!fontsLoaded) return <ActivityIndicator style={{ flex: 1 }} />;
 
@@ -57,174 +80,246 @@ export default function MemeCanvas() {
       aspect: [1, 1],
       quality: 1,
     });
-
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-    }
+    if (!result.canceled) setImage(result.assets[0].uri);
   };
 
   const shareMeme = async () => {
     if (!image) return Alert.alert("Selecciona una imagen");
-
-    const uri = await captureRef(viewRef, {
-      format: "png",
-      quality: 0.9,
-    });
-
+    const uri = await captureRef(viewRef, { format: "png", quality: 0.9 });
     await Sharing.shareAsync(uri);
   };
 
+  const handleTextPress = (textPosition: "top" | "bottom") => {
+    setIsEditing(true);
+    if (textPosition === "top") {
+      setTopText(" ");
+      // Scroll suave hacia la posición del texto superior
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }, 100);
+    } else {
+      setBottomText(" ");
+      // Scroll hacia el centro para el texto inferior
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 200, animated: true });
+      }, 100);
+    }
+  };
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Meme Maker</Text>
+    <View style={styles.mainContainer}>
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: keyboardHeight }, // Ajuste por teclado
+        ]}
+        scrollEnabled={!isEditing}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={false}
+        automaticallyAdjustsScrollIndicatorInsets={false}
+        keyboardDismissMode="none"
+      >
+        <Text style={styles.title}>Meme Maker</Text>
 
-      <View style={styles.memeWrapper}>
-        <View ref={viewRef} collapsable={false} style={styles.captureZone}>
-          {image ? (
-            <Image source={{ uri: image }} style={styles.image} />
-          ) : (
-            <TouchableOpacity onPress={pickImage} style={styles.placeholder}>
-              <Text style={{ fontSize: 40 }}>🖼️</Text>
-              <Text>Añadir imagen</Text>
-            </TouchableOpacity>
-          )}
+        <View style={styles.memeWrapper}>
+          <View ref={viewRef} collapsable={false} style={styles.captureZone}>
+            {image ? (
+              <Image source={{ uri: image }} style={styles.image} />
+            ) : (
+              <TouchableOpacity onPress={pickImage} style={styles.placeholder}>
+                <Text style={{ fontSize: 40 }}>🖼️</Text>
+                <Text>Añadir imagen</Text>
+              </TouchableOpacity>
+            )}
 
-          {topText !== "" && (
-            <DraggableText
-              label={topText}
-              fontSize={fontSize}
-              color={textColor}
-            />
-          )}
+            {/* Texto superior con posición ajustada */}
+            {topText === "" ? (
+              <TouchableOpacity
+                style={[styles.textPlaceholderTop, { zIndex: 1000 }]}
+                onPress={() => handleTextPress("top")}
+              >
+                <Text style={styles.placeholderText}>+ Texto arriba</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.draggableWrapper} pointerEvents="box-none">
+                <DraggableText
+                  text={topText}
+                  fontSize={fontSize}
+                  color={textColor}
+                  onChangeText={setTopText}
+                  initialOffsetY={-120}
+                  onEditingChange={setIsEditing}
+                />
+              </View>
+            )}
 
-          {bottomText !== "" && (
-            <DraggableText
-              label={bottomText}
-              fontSize={fontSize}
-              color={textColor}
-            />
-          )}
+            {/* Texto inferior con posición ajustada */}
+            {bottomText === "" ? (
+              <TouchableOpacity
+                style={[styles.textPlaceholderBottom, { zIndex: 1000 }]}
+                onPress={() => handleTextPress("bottom")}
+              >
+                <Text style={styles.placeholderText}>+ Texto abajo</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.draggableWrapper} pointerEvents="box-none">
+                <DraggableText
+                  text={bottomText}
+                  fontSize={fontSize}
+                  color={textColor}
+                  onChangeText={setBottomText}
+                  initialOffsetY={120}
+                  onEditingChange={setIsEditing}
+                />
+              </View>
+            )}
 
-          {stickers.map((s) => (
-            <DraggableSticker
-              key={s.id}
-              source={s.image}
-              isSelected={s.id === selectedStickerId}
-              onSelect={() =>
-                setSelectedStickerId((prev) => (prev === s.id ? null : s.id))
-              }
-              onRemove={() => removeSticker(s.id)}
-            />
-          ))}
+            {stickers.map((s) => (
+              <DraggableSticker
+                key={s.id}
+                source={s.image}
+                isSelected={s.id === selectedStickerId}
+                onSelect={() =>
+                  setSelectedStickerId((prev) => (prev === s.id ? null : s.id))
+                }
+                onRemove={() => removeSticker(s.id)}
+              />
+            ))}
+          </View>
         </View>
-      </View>
 
-      <View style={styles.controls}>
-        <TextInput
-          style={styles.input}
-          placeholder="Texto superior"
-          value={topText}
-          onChangeText={setTopText}
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="Texto inferior"
-          value={bottomText}
-          onChangeText={setBottomText}
-        />
-
-        <Text>Tamaño texto: {Math.round(fontSize)}</Text>
-
-        <Slider
-          minimumValue={15}
-          maximumValue={80}
-          value={fontSize}
-          onValueChange={setFontSize}
-        />
-
-        <View style={styles.colors}>
-          {colors.map((c) => (
-            <TouchableOpacity
-              key={c}
-              onPress={() => setTextColor(c)}
-              style={[styles.color, { backgroundColor: c }]}
-            />
-          ))}
+        <View style={styles.controls}>
+          <Text>Tamaño texto: {Math.round(fontSize)}</Text>
+          <Slider
+            minimumValue={15}
+            maximumValue={80}
+            value={fontSize}
+            onValueChange={setFontSize}
+          />
+          <View style={styles.colors}>
+            {colors.map((c) => (
+              <TouchableOpacity
+                key={c}
+                onPress={() => setTextColor(c)}
+                style={[styles.color, { backgroundColor: c }]}
+              />
+            ))}
+          </View>
         </View>
-      </View>
 
-      <TouchableOpacity style={styles.button} onPress={shareMeme}>
-        <Text style={{ color: "white", fontWeight: "bold" }}>
-          Compartir meme 🚀
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity style={styles.button} onPress={shareMeme}>
+          <Text style={{ color: "white", fontWeight: "bold" }}>
+            Compartir meme 🚀
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingVertical: 50,
-    alignItems: "center",
+  mainContainer: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
   },
-
+  container: {
+    alignItems: "center",
+    paddingVertical: 20,
+  },
   title: {
-    fontSize: 26,
-    fontFamily: "MemeFont",
+    fontSize: 28,
+    fontWeight: "bold",
     marginBottom: 20,
   },
-
   memeWrapper: {
-    width: width * 0.9,
-    height: width * 0.9,
-    backgroundColor: "white",
+    width: width - 40,
+    aspectRatio: 1,
+    borderRadius: 10,
+    overflow: "hidden",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
-
   captureZone: {
-    flex: 1,
-    position: "relative",
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#e0e0e0",
   },
-
   image: {
     width: "100%",
     height: "100%",
+    resizeMode: "cover",
   },
-
   placeholder: {
-    flex: 1,
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#ddd",
+  },
+  textPlaceholderTop: {
+    position: "absolute",
+    top: 20,
+    alignSelf: "center",
+    backgroundColor: "rgba(255,255,255,0.8)",
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#999",
+    borderStyle: "dashed",
+  },
+  textPlaceholderBottom: {
+    position: "absolute",
+    bottom: 20,
+    alignSelf: "center",
+    backgroundColor: "rgba(255,255,255,0.8)",
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#999",
+    borderStyle: "dashed",
+  },
+  placeholderText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  draggableWrapper: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
     justifyContent: "center",
     alignItems: "center",
   },
-
   controls: {
-    width: "90%",
     marginTop: 20,
-  },
-
-  input: {
+    width: width - 40,
+    padding: 15,
     backgroundColor: "white",
-    padding: 10,
     borderRadius: 10,
-    marginBottom: 10,
   },
-
   colors: {
     flexDirection: "row",
+    justifyContent: "space-around",
     marginTop: 10,
   },
-
   color: {
-    width: 35,
-    height: 35,
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    marginRight: 10,
+    borderWidth: 2,
+    borderColor: "#ccc",
   },
-
   button: {
     marginTop: 20,
-    backgroundColor: "#2ecc71",
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: "#2196F3",
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 25,
+    elevation: 3,
   },
 });

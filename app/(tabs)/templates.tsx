@@ -1,5 +1,5 @@
-import { useMeme } from "@/context/Memecontext";
 import { Image, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
+import { useMeme } from "../../context/MemeContext";
 
 const templates = [
   require("../../assets/memes/alegre.webp"),
@@ -8,7 +8,6 @@ const templates = [
 ];
 
 export default function Templates() {
-
   // 🔹 usamos el contexto
   const { setImage } = useMeme();
 

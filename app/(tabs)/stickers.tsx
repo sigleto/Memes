@@ -1,4 +1,4 @@
-import { useMeme } from "@/context/Memecontext";
+import { useMeme } from "@/context/MemeContext";
 import { Image, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
 
 const stickerList = [
@@ -9,7 +9,6 @@ const stickerList = [
 ];
 
 export default function Stickers() {
-
   // 🔹 usamos la función del contexto
   const { addSticker } = useMeme();
 
@@ -18,7 +17,7 @@ export default function Stickers() {
       {stickerList.map((s, index) => (
         <TouchableOpacity
           key={index}
-          onPress={() => addSticker(s)}   // 🔹 añade el sticker al editor
+          onPress={() => addSticker(s)} // 🔹 añade el sticker al editor
           style={styles.sticker}
         >
           <Image source={s} style={styles.image} />

@@ -1,4 +1,4 @@
-import { useMeme } from "@/context/Memecontext";
+import { useMeme } from "@/context/MemeContext";
 import { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 

@@ -1,5 +1,12 @@
 import React, { useRef } from "react";
-import { Animated, Image, PanResponder } from "react-native";
+import {
+  Animated,
+  Image,
+  PanResponder,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function DraggableSticker({
   source,
@@ -17,15 +24,12 @@ export default function DraggableSticker({
         onSelect();
       },
 
-      onPanResponderMove: Animated.event(
-        [null, { dx: pan.x, dy: pan.y }],
-        { useNativeDriver: false }
-      ),
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+        useNativeDriver: false,
+      }),
 
-      onPanResponderRelease: () => {
-        pan.flattenOffset();
-      },
-    })
+      onPanResponderRelease: () => {},
+    }),
   ).current;
 
   return (
@@ -37,6 +41,31 @@ export default function DraggableSticker({
       }}
     >
       <Image source={source} style={{ width: 80, height: 80 }} />
+
+      {isSelected && (
+        <View
+          style={{
+            position: "absolute",
+            top: -12,
+            right: -12,
+          }}
+          pointerEvents="box-none"
+        >
+          <TouchableOpacity
+            onPress={onRemove}
+            style={{
+              backgroundColor: "red",
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: "white", fontWeight: "bold" }}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </Animated.View>
   );
 }
