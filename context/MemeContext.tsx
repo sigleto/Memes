@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState } from "react";
 
-type Sticker = {
+export type Sticker = {
   id: number;
-  image: any;
+  image: any; // require(...) o URL
+  isGif?: boolean; // indicador de GIF
 };
 
 type MemeContextType = {
@@ -15,7 +16,7 @@ type MemeContextType = {
   setBottomText: (text: string) => void;
 
   stickers: Sticker[];
-  addSticker: (img: any) => void;
+  addSticker: (sticker: { image: any; isGif?: boolean }) => void;
   removeSticker: (id: number) => void;
 };
 
@@ -23,18 +24,17 @@ const MemeContext = createContext<MemeContextType | null>(null);
 
 export const MemeProvider = ({ children }: any) => {
   const [image, setImage] = useState<string | null>(null);
-
   const [topText, setTopText] = useState("");
   const [bottomText, setBottomText] = useState("");
-
   const [stickers, setStickers] = useState<Sticker[]>([]);
 
-  const addSticker = (img: any) => {
+  const addSticker = (sticker: { image: any; isGif?: boolean }) => {
     setStickers((prev) => [
       ...prev,
       {
         id: Date.now(),
-        image: img,
+        image: sticker.image,
+        isGif: sticker.isGif || false,
       },
     ]);
   };
@@ -64,10 +64,6 @@ export const MemeProvider = ({ children }: any) => {
 
 export const useMeme = () => {
   const context = useContext(MemeContext);
-
-  if (!context) {
-    throw new Error("useMeme debe usarse dentro de MemeProvider");
-  }
-
+  if (!context) throw new Error("useMeme debe usarse dentro de MemeProvider");
   return context;
 };

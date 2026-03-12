@@ -1,7 +1,6 @@
 import { useMeme } from "@/context/MemeContext";
 import { Anton_400Regular, useFonts } from "@expo-google-fonts/anton";
 import Slider from "@react-native-community/slider";
-import * as ImagePicker from "expo-image-picker";
 import * as Sharing from "expo-sharing";
 import React, { useRef, useState } from "react";
 import {
@@ -45,6 +44,7 @@ export default function MemeCanvas() {
   );
   const [isEditing, setIsEditing] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isImageSelected, setIsImageSelected] = useState(false);
 
   const viewRef = useRef<View>(null);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -54,17 +54,12 @@ export default function MemeCanvas() {
   React.useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
-      (e) => {
-        setKeyboardHeight(e.endCoordinates.height);
-      },
+      (e) => setKeyboardHeight(e.endCoordinates.height),
     );
     const keyboardDidHideListener = Keyboard.addListener(
       Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
-      () => {
-        setKeyboardHeight(0);
-      },
+      () => setKeyboardHeight(0),
     );
-
     return () => {
       keyboardDidShowListener.remove();
       keyboardDidHideListener.remove();
@@ -73,37 +68,55 @@ export default function MemeCanvas() {
 
   if (!fontsLoaded) return <ActivityIndicator style={{ flex: 1 }} />;
 
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-    if (!result.canceled) setImage(result.assets[0].uri);
-  };
-
   const shareMeme = async () => {
-    if (!image) return Alert.alert("Selecciona una imagen");
-    const uri = await captureRef(viewRef, { format: "png", quality: 0.9 });
-    await Sharing.shareAsync(uri);
+    if (!image && stickers.length === 0) {
+      return Alert.alert(
+        "Sin contenido",
+        "Añade una imagen desde la pestaña 'Subir' o algún sticker",
+      );
+    }
+
+    try {
+      const uri = await captureRef(viewRef, { format: "png", quality: 0.9 });
+      await Sharing.shareAsync(uri);
+    } catch (error) {
+      Alert.alert("Error", "No se pudo compartir el meme");
+    }
   };
 
   const handleTextPress = (textPosition: "top" | "bottom") => {
     setIsEditing(true);
     if (textPosition === "top") {
       setTopText(" ");
-      // Scroll suave hacia la posición del texto superior
-      setTimeout(() => {
-        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-      }, 100);
+      setTimeout(
+        () => scrollViewRef.current?.scrollTo({ y: 0, animated: true }),
+        100,
+      );
     } else {
       setBottomText(" ");
-      // Scroll hacia el centro para el texto inferior
-      setTimeout(() => {
-        scrollViewRef.current?.scrollTo({ y: 200, animated: true });
-      }, 100);
+      setTimeout(
+        () => scrollViewRef.current?.scrollTo({ y: 200, animated: true }),
+        100,
+      );
     }
+  };
+
+  const removeBackgroundImage = () => {
+    Alert.alert(
+      "Eliminar imagen",
+      "¿Estás seguro de que quieres eliminar la imagen de fondo?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          onPress: () => {
+            setImage(null);
+            setIsImageSelected(false);
+          },
+          style: "destructive",
+        },
+      ],
+    );
   };
 
   return (
@@ -112,36 +125,55 @@ export default function MemeCanvas() {
         ref={scrollViewRef}
         contentContainerStyle={[
           styles.container,
-          { paddingBottom: keyboardHeight }, // Ajuste por teclado
+          { paddingBottom: keyboardHeight },
         ]}
         scrollEnabled={!isEditing}
         keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets={false}
-        automaticallyAdjustsScrollIndicatorInsets={false}
-        keyboardDismissMode="none"
       >
         <Text style={styles.title}>Meme Maker</Text>
 
         <View style={styles.memeWrapper}>
-          <View ref={viewRef} collapsable={false} style={styles.captureZone}>
+          <View
+            ref={viewRef}
+            collapsable={false}
+            style={[
+              styles.captureZone,
+              !image && stickers.length > 0 && { backgroundColor: "white" },
+            ]}
+          >
             {image ? (
-              <Image source={{ uri: image }} style={styles.image} />
-            ) : (
-              <TouchableOpacity onPress={pickImage} style={styles.placeholder}>
-                <Text style={{ fontSize: 40 }}>🖼️</Text>
-                <Text>Añadir imagen</Text>
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={() => setIsImageSelected(true)}
+                onLongPress={() => setIsImageSelected(true)}
+                style={styles.imageContainer}
+              >
+                <Image source={{ uri: image }} style={styles.image} />
+                {isImageSelected && (
+                  <View
+                    style={styles.imageRemoveButton}
+                    pointerEvents="box-none"
+                  >
+                    <TouchableOpacity
+                      onPress={removeBackgroundImage}
+                      style={styles.removeButton}
+                    >
+                      <Text style={styles.removeButtonText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </TouchableOpacity>
+            ) : (
+              <View style={styles.emptyCanvas}>
+                <Text style={styles.emptyIcon}>🎨</Text>
+                <Text style={styles.emptyText}>
+                  Usa la pestaña "Subir" para añadir una imagen
+                </Text>
+              </View>
             )}
 
-            {/* Texto superior con posición ajustada */}
-            {topText === "" ? (
-              <TouchableOpacity
-                style={[styles.textPlaceholderTop, { zIndex: 1000 }]}
-                onPress={() => handleTextPress("top")}
-              >
-                <Text style={styles.placeholderText}>+ Texto arriba</Text>
-              </TouchableOpacity>
-            ) : (
+            {/* Texto superior */}
+            {topText !== "" && (
               <View style={styles.draggableWrapper} pointerEvents="box-none">
                 <DraggableText
                   text={topText}
@@ -154,15 +186,8 @@ export default function MemeCanvas() {
               </View>
             )}
 
-            {/* Texto inferior con posición ajustada */}
-            {bottomText === "" ? (
-              <TouchableOpacity
-                style={[styles.textPlaceholderBottom, { zIndex: 1000 }]}
-                onPress={() => handleTextPress("bottom")}
-              >
-                <Text style={styles.placeholderText}>+ Texto abajo</Text>
-              </TouchableOpacity>
-            ) : (
+            {/* Texto inferior */}
+            {bottomText !== "" && (
               <View style={styles.draggableWrapper} pointerEvents="box-none">
                 <DraggableText
                   text={bottomText}
@@ -175,14 +200,36 @@ export default function MemeCanvas() {
               </View>
             )}
 
+            {/* Placeholders de texto (solo cuando no hay texto) */}
+            {topText === "" && (
+              <TouchableOpacity
+                style={[styles.textPlaceholderTop, { zIndex: 1000 }]}
+                onPress={() => handleTextPress("top")}
+              >
+                <Text style={styles.placeholderText}>+ Texto arriba</Text>
+              </TouchableOpacity>
+            )}
+
+            {bottomText === "" && (
+              <TouchableOpacity
+                style={[styles.textPlaceholderBottom, { zIndex: 1000 }]}
+                onPress={() => handleTextPress("bottom")}
+              >
+                <Text style={styles.placeholderText}>+ Texto abajo</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Stickers */}
             {stickers.map((s) => (
               <DraggableSticker
                 key={s.id}
                 source={s.image}
+                isGif={s.isGif}
                 isSelected={s.id === selectedStickerId}
-                onSelect={() =>
-                  setSelectedStickerId((prev) => (prev === s.id ? null : s.id))
-                }
+                onSelect={() => {
+                  setSelectedStickerId((prev) => (prev === s.id ? null : s.id));
+                  setIsImageSelected(false);
+                }}
                 onRemove={() => removeSticker(s.id)}
               />
             ))}
@@ -248,17 +295,32 @@ const styles = StyleSheet.create({
     height: "100%",
     backgroundColor: "#e0e0e0",
   },
+  imageContainer: {
+    width: "100%",
+    height: "100%",
+  },
   image: {
     width: "100%",
     height: "100%",
     resizeMode: "cover",
   },
-  placeholder: {
+  emptyCanvas: {
     width: "100%",
     height: "100%",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#ddd",
+    backgroundColor: "#f0f0f0",
+    padding: 20,
+  },
+  emptyIcon: {
+    fontSize: 60,
+    marginBottom: 15,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 22,
   },
   textPlaceholderTop: {
     position: "absolute",
@@ -321,5 +383,31 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     borderRadius: 25,
     elevation: 3,
+  },
+  imageRemoveButton: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    zIndex: 2000,
+  },
+  removeButton: {
+    backgroundColor: "red",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "white",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  removeButtonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
   },
 });
