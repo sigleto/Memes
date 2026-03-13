@@ -1,87 +1,64 @@
 import { useMeme } from "@/context/MemeContext";
-import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-import ImageCropper from "../../components/ImageCropper";
+import ImagePicker from "react-native-image-crop-picker";
+
 
 export default function UploadScreen() {
   const { setImage } = useMeme();
   const [loading, setLoading] = useState(false);
-  const [cropperVisible, setCropperVisible] = useState(false);
-  const [tempImageUri, setTempImageUri] = useState<string | null>(null);
+  
 
   const pickImage = async () => {
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsEditing: false, // Importante: desactivamos el recorte nativo
-        quality: 1,
-      });
+    const image = await ImagePicker.openPicker({
+      width: 1024,
+      height: 1024,
+      cropping: true,
+      compressImageQuality: 0.9,
+      mediaType: "photo",
+    });
 
-      if (!result.canceled && result.assets[0]) {
-        setTempImageUri(result.assets[0].uri);
-        setCropperVisible(true);
-      }
-    } catch (error) {
-      Alert.alert("Error", "No se pudo seleccionar la imagen");
-      console.log(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const takePhoto = async () => {
-    try {
-      setLoading(true);
-
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-
-      if (status !== "granted") {
-        Alert.alert(
-          "Permiso denegado",
-          "Necesitamos permiso para usar la cámara",
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: false, // Importante: desactivamos el recorte nativo
-        quality: 1,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setTempImageUri(result.assets[0].uri);
-        setCropperVisible(true);
-      }
-    } catch (error) {
-      Alert.alert("Error", "No se pudo tomar la foto");
-      console.log(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCropConfirm = (croppedUri: string) => {
-    setImage(croppedUri);
-    setCropperVisible(false);
-    setTempImageUri(null);
+    setImage(image.path);
     router.back();
-  };
+  } catch (error) {
+    console.log(error);
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const handleCropCancel = () => {
-    setCropperVisible(false);
-    setTempImageUri(null);
-  };
+const takePhoto = async () => {
+  try {
+    setLoading(true);
+
+    const image = await ImagePicker.openCamera({
+      width: 1024,
+      height: 1024,
+      cropping: true,
+      compressImageQuality: 0.9,
+      mediaType: "photo",
+    });
+
+    setImage(image.path);
+    router.back();
+  } catch (error) {
+    console.log(error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+  
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -126,14 +103,7 @@ export default function UploadScreen() {
         </Text>
       </View>
 
-      {tempImageUri && (
-        <ImageCropper
-          visible={cropperVisible}
-          imageUri={tempImageUri}
-          onCancel={handleCropCancel}
-          onConfirm={handleCropConfirm}
-        />
-      )}
+     
     </ScrollView>
   );
 }

@@ -30,14 +30,40 @@ const stickerList = [
   },
   {
     image:
-      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHBlc28xZW01OTZ6OGJueXN2Mm16cDRieTh1aDJvNDJraWJieGo5cCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/wWue0rCDOphOE/giphy.gif",
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExY3dnbjhib2ZzMGI4b2Flb29hMnZ2OGEwNm05cWpneWFkc3g1cWpoNiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/ycagKBYEmaili/giphy.gif",
     isGif: true,
   },
   {
     image:
-      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmxsOGdnZDJsa2w4ZG04emlsb3YzdWY0dDZocWRnMmY1ZGd1bWJzcyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/WmtTa52BN4zTdDdyV7/giphy.gif",
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMm1ieTR3ZmRocXR4eHZqeWNzN3FhNTc3cXkzNmJqOWd2YWlsZzJudCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/xUA7aOLkviIdZ7UK40/giphy.gif",
     isGif: true,
   },
+  {
+    image:
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaTJtcDFqaXB4em5kNnhlOXAxeWtpYWV5YTY1c211eW1vZ3dsMTJ1dCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/KeWimTRIT6tdshf6G0/giphy.gif",
+    isGif: true,
+  },
+  {
+    image:
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdDN5anVzaWt4aG9qOWw2cnlzdTY5MmN6MXY4OWxidTFqOGUyempjeSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/mIZ9rPeMKefm0/giphy.gif",
+    isGif: true,
+  },
+  {
+    image:
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdHN6dmZ0MDFlZWEyaWQ3b3F1dWcweGlsNnZpczdwc2dmeHl1cGpjNyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/fmeTX8AURI4co/giphy.gif",
+    isGif: true,
+  },
+  {
+    image:
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdHN6dmZ0MDFlZWEyaWQ3b3F1dWcweGlsNnZpczdwc2dmeHl1cGpjNyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Nf8vX5K7AHcAg/giphy.gif",
+    isGif: true,
+  },
+  {
+    image:
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd2ltODFsa2t6MmRuZjc0bmhqOTJidHU0cDZsd3kzbHo2bWJkYjR4YyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/UjYw9fdCEPwU8/giphy.gif",
+    isGif: true,
+  },
+  
 ];
 
 export default function Stickers() {
