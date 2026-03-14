@@ -2,22 +2,20 @@ import { useMeme } from "@/context/MemeContext";
 import { Anton_400Regular, useFonts } from "@expo-google-fonts/anton";
 import Slider from "@react-native-community/slider";
 import * as Sharing from "expo-sharing";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
   Image,
-  Keyboard,
+  KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { captureRef } from "react-native-view-shot";
-
 import DraggableSticker from "./DraggableSticker";
 import DraggableText from "./DraggableText";
 
@@ -25,6 +23,7 @@ const { width } = Dimensions.get("window");
 
 export default function MemeCanvas() {
   const [fontsLoaded] = useFonts({ MemeFont: Anton_400Regular });
+
   const {
     image,
     setImage,
@@ -32,234 +31,282 @@ export default function MemeCanvas() {
     bottomText,
     setTopText,
     setBottomText,
-    stickers,
+    stickers, // <-- FALTABA ESTO
     removeSticker,
   } = useMeme();
 
   const [fontSize, setFontSize] = useState(35);
-  const [textColor, setTextColor] = useState("white");
+  const [textColor, setTextColor] = useState("black");
   const [selectedStickerId, setSelectedStickerId] = useState<number | null>(
-    null
+    null,
   );
-  const [isEditing, setIsEditing] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [isImageSelected, setIsImageSelected] = useState(false);
-  const [hasContent, setHasContent] = useState(false); // <--- nuevo estado
 
   const viewRef = useRef<View>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
+
   const colors = ["white", "#f1c40f", "#e74c3c", "#2ecc71", "#9b59b6", "black"];
 
-  // Actualiza hasContent cuando cambie image o stickers
-  useEffect(() => {
-    if (image || stickers.length > 0) {
-      setHasContent(true);
-    } else {
-      setHasContent(false);
-    }
-  }, [image, stickers]);
-
-  // Manejadores para el teclado
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
-      (e) => setKeyboardHeight(e.endCoordinates.height)
+  if (!fontsLoaded) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2196F3" />
+      </View>
     );
-    const keyboardDidHideListener = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
-      () => setKeyboardHeight(0)
-    );
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
-    };
-  }, []);
-
-  if (!fontsLoaded) return <ActivityIndicator style={{ flex: 1 }} />;
+  }
 
   const shareMeme = async () => {
-    if (!image && stickers.length === 0) {
-      return Alert.alert(
-        "Sin contenido",
-        "Añade una imagen desde la pestaña 'Subir' o algún sticker"
-      );
-    }
-
     try {
       const uri = await captureRef(viewRef, {
         format: "png",
         quality: 0.9,
       });
+
       await Sharing.shareAsync(uri);
     } catch (error) {
-      Alert.alert("Error", "No se pudo compartir el meme");
-    }
-  };
-
-  const handleTextPress = (textPosition: "top" | "bottom") => {
-    setIsEditing(true);
-    if (textPosition === "top") {
-      setTopText(" ");
-      setTimeout(() => scrollViewRef.current?.scrollTo({ y: 0, animated: true }), 100);
-    } else {
-      setBottomText(" ");
-      setTimeout(() => scrollViewRef.current?.scrollTo({ y: 200, animated: true }), 100);
+      Alert.alert("Error", "No se pudo generar o compartir el meme");
     }
   };
 
   const removeBackgroundImage = () => {
-    Alert.alert("Eliminar imagen", "¿Estás seguro de que quieres eliminar la imagen de fondo?", [
+    Alert.alert("Eliminar imagen", "¿Eliminar la imagen de fondo?", [
       { text: "Cancelar", style: "cancel" },
       {
         text: "Eliminar",
-        onPress: () => {
-          setImage(null);
-          setIsImageSelected(false);
-        },
         style: "destructive",
+        onPress: () => setImage(null),
       },
     ]);
   };
 
   return (
-    <View style={styles.mainContainer}>
-      <ScrollView
-        ref={scrollViewRef}
-        contentContainerStyle={[styles.container, { paddingBottom: keyboardHeight }]}
-        scrollEnabled={!isEditing}
-        keyboardShouldPersistTaps="handled"
-      >
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.mainContainer}
+    >
+      <View style={styles.container}>
         <Text style={styles.title}>Meme Maker</Text>
 
+        {/* Zona de Edición y Captura */}
         <View style={styles.memeWrapper}>
-          <View
-            ref={viewRef}
-            collapsable={false}
-            style={[styles.captureZone, !hasContent && { backgroundColor: "#f0f0f0" }]}
-          >
-            {/* Texto de fondo cuando no hay contenido */}
-            {!hasContent && (
+          <View ref={viewRef} collapsable={false} style={styles.captureZone}>
+            {!image ? (
               <View style={styles.emptyCanvas}>
                 <Text style={styles.emptyIcon}>🎨</Text>
                 <Text style={styles.emptyText}>
-                  Usa la pestaña "Subir" para añadir una imagen
+                  Usa la pestaña "Subir" para añadir imagen
                 </Text>
               </View>
-            )}
-
-            {/* Imagen de fondo */}
-            {image && (
-              <TouchableOpacity
-                activeOpacity={1}
-                onPress={() => setIsImageSelected(true)}
-                onLongPress={() => setIsImageSelected(true)}
-                style={styles.imageContainer}
-              >
+            ) : (
+              <>
                 <Image source={{ uri: image }} style={styles.image} />
-                {isImageSelected && (
-                  <View style={styles.imageRemoveButton} pointerEvents="box-none">
-                    <TouchableOpacity onPress={removeBackgroundImage} style={styles.removeButton}>
-                      <Text style={styles.removeButtonText}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.imageDeleteButton}
+                  onPress={removeBackgroundImage}
+                >
+                  <Text style={styles.imageDeleteText}>✕</Text>
+                </TouchableOpacity>
+              </>
             )}
 
-            {/* Texto superior */}
-            {topText !== "" && (
-              <View style={styles.draggableWrapper} pointerEvents="box-none">
-                <DraggableText
-                  text={topText}
-                  fontSize={fontSize}
-                  color={textColor}
-                  onChangeText={setTopText}
-                  initialOffsetY={-120}
-                  onEditingChange={setIsEditing}
-                />
-              </View>
-            )}
-
-            {/* Texto inferior */}
-            {bottomText !== "" && (
-              <View style={styles.draggableWrapper} pointerEvents="box-none">
-                <DraggableText
-                  text={bottomText}
-                  fontSize={fontSize}
-                  color={textColor}
-                  onChangeText={setBottomText}
-                  initialOffsetY={120}
-                  onEditingChange={setIsEditing}
-                />
-              </View>
-            )}
-
-            {/* Stickers */}
-            {stickers.map((s) => (
+            {/* ✅ RENDERIZAR STICKERS DEL CONTEXTO */}
+            {stickers.map((sticker) => (
               <DraggableSticker
-                key={s.id}
-                source={s.image}
-                isGif={s.isGif}
-                isSelected={s.id === selectedStickerId}
-                onSelect={() => {
-                  setSelectedStickerId((prev) => (prev === s.id ? null : s.id));
-                  setIsImageSelected(false);
-                }}
-                onRemove={() => removeSticker(s.id)}
+                key={sticker.id}
+                source={sticker.image}
+                isGif={sticker.isGif}
+                isSelected={selectedStickerId === sticker.id}
+                onSelect={() => setSelectedStickerId(sticker.id)}
+                onRemove={() => removeSticker(sticker.id)}
+              />
+            ))}
+            {/* Los textos draggables van aquí para que se capturen con la imagen */}
+            <DraggableText
+              text={topText}
+              onChangeText={setTopText}
+              fontSize={fontSize}
+              color={textColor}
+              placeholder="Texto arriba"
+              initialOffsetY={-120}
+            />
+
+            <DraggableText
+              text={bottomText}
+              onChangeText={setBottomText}
+              fontSize={fontSize}
+              color={textColor}
+              placeholder="Texto abajo"
+              initialOffsetY={120}
+            />
+          </View>
+        </View>
+
+        {/* Panel de Controles */}
+        <View style={styles.controls}>
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>Tamaño: {Math.round(fontSize)}</Text>
+          </View>
+
+          <Slider
+            style={styles.slider}
+            minimumValue={15}
+            maximumValue={80}
+            value={fontSize}
+            onValueChange={setFontSize}
+            minimumTrackTintColor="#2196F3"
+            maximumTrackTintColor="#ccc"
+          />
+
+          <View style={styles.colors}>
+            {colors.map((c) => (
+              <TouchableOpacity
+                key={c}
+                onPress={() => setTextColor(c)}
+                style={[
+                  styles.color,
+                  { backgroundColor: c },
+                  textColor === c && styles.selectedColor,
+                ]}
               />
             ))}
           </View>
         </View>
 
-        {/* Controles de texto */}
-        <View style={styles.controls}>
-          <Text>Tamaño texto: {Math.round(fontSize)}</Text>
-          <Slider minimumValue={15} maximumValue={80} value={fontSize} onValueChange={setFontSize} />
-          <View style={styles.colors}>
-            {colors.map((c) => (
-              <TouchableOpacity key={c} onPress={() => setTextColor(c)} style={[styles.color, { backgroundColor: c }]} />
-            ))}
-          </View>
-        </View>
-
         <TouchableOpacity style={styles.button} onPress={shareMeme}>
-          <Text style={{ color: "white", fontWeight: "bold" }}>Compartir meme 🚀</Text>
+          <Text style={styles.buttonText}>Compartir meme 🚀</Text>
         </TouchableOpacity>
-      </ScrollView>
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, backgroundColor: "#f5f5f5" },
-  container: { alignItems: "center", paddingVertical: 20 },
-  title: { fontSize: 28, fontWeight: "bold", marginBottom: 20 },
+  mainContainer: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 20,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 15,
+    color: "#333",
+  },
   memeWrapper: {
     width: width - 40,
     aspectRatio: 1,
-    borderRadius: 10,
+    borderRadius: 15,
     overflow: "hidden",
+    backgroundColor: "#ddd",
     elevation: 5,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
   },
-  captureZone: { width: "100%", height: "100%" },
-  imageContainer: { width: "100%", height: "100%" },
-  image: { width: "100%", height: "100%", resizeMode: "cover" },
-  emptyCanvas: { position: "absolute", width: "100%", height: "100%", justifyContent: "center", alignItems: "center" },
-  emptyIcon: { fontSize: 60, marginBottom: 15 },
-  emptyText: { fontSize: 16, color: "#666", textAlign: "center", lineHeight: 22 },
-  draggableWrapper: { position: "absolute", width: "100%", height: "100%", justifyContent: "center", alignItems: "center" },
-  textPlaceholderTop: { position: "absolute", top: 20, alignSelf: "center", backgroundColor: "rgba(255,255,255,0.8)", paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#999", borderStyle: "dashed" },
-  textPlaceholderBottom: { position: "absolute", bottom: 20, alignSelf: "center", backgroundColor: "rgba(255,255,255,0.8)", paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#999", borderStyle: "dashed" },
-  placeholderText: { fontSize: 14, color: "#666" },
-  controls: { marginTop: 20, width: width - 40, padding: 15, backgroundColor: "white", borderRadius: 10 },
-  colors: { flexDirection: "row", justifyContent: "space-around", marginTop: 10 },
-  color: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: "#ccc" },
-  button: { marginTop: 20, backgroundColor: "#2196F3", paddingHorizontal: 30, paddingVertical: 15, borderRadius: 25, elevation: 3 },
-  imageRemoveButton: { position: "absolute", top: 10, right: 10, zIndex: 2000 },
-  removeButton: { backgroundColor: "red", width: 32, height: 32, borderRadius: 16, justifyContent: "center", alignItems: "center", borderWidth: 2, borderColor: "white", elevation: 5, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84 },
-  removeButtonText: { color: "white", fontWeight: "bold", fontSize: 16 },
+  captureZone: {
+    width: "100%",
+    height: "100%",
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#eee",
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+    position: "absolute",
+  },
+  imageDeleteButton: {
+    position: "absolute",
+    top: 15,
+    right: 15,
+    backgroundColor: "rgba(231, 76, 60, 0.9)",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100,
+  },
+  imageDeleteText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  emptyCanvas: {
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  emptyIcon: {
+    fontSize: 50,
+    marginBottom: 10,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: "#888",
+    textAlign: "center",
+  },
+  controls: {
+    marginTop: 20,
+    width: width - 40,
+    padding: 20,
+    backgroundColor: "white",
+    borderRadius: 15,
+    elevation: 2,
+  },
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 5,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#555",
+  },
+  slider: {
+    width: "100%",
+    height: 40,
+  },
+  colors: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginTop: 15,
+  },
+  color: {
+    width: 35,
+    height: 35,
+    borderRadius: 17.5,
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  selectedColor: {
+    borderWidth: 3,
+    borderColor: "#2196F3",
+    transform: [{ scale: 1.1 }],
+  },
+  button: {
+    marginTop: 20,
+    backgroundColor: "#2196F3",
+    paddingHorizontal: 40,
+    paddingVertical: 15,
+    borderRadius: 30,
+    elevation: 3,
+  },
+  buttonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
 });
