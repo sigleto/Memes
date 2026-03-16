@@ -1,5 +1,4 @@
-// DraggableText.tsx
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   PanResponder,
@@ -7,61 +6,65 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  View,
 } from "react-native";
 
 interface DraggableTextProps {
   text: string;
+  onChangeText: (text: string) => void;
+  onRemove: () => void;
   fontSize: number;
   color: string;
-  onChangeText: (text: string) => void;
-  initialOffsetY?: number;
-  placeholder?: string;
+  autoFocus?: boolean;
 }
 
 export default function DraggableText({
   text,
+  onChangeText,
+  onRemove,
   fontSize,
   color,
-  onChangeText,
-  initialOffsetY = 0,
-  placeholder = "",
+  autoFocus = false,
 }: DraggableTextProps) {
+  const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const [isEditing, setIsEditing] = useState(false);
-  const pan = useRef(new Animated.ValueXY({ x: 0, y: initialOffsetY })).current;
+  const inputRef = useRef<TextInput>(null);
 
+  useEffect(() => {
+    if (autoFocus && text === "") {
+      setTimeout(() => {
+        inputRef.current?.focus();
+        setIsEditing(true);
+      }, 100);
+    }
+  }, [autoFocus]);
+
+  // Mostrar el botón de borrar SOLO cuando está en modo edición
+  const showDelete = isEditing && text.length > 0;
+
+  // PanResponder - solo activo cuando NO estamos editando
   const panResponder = useRef(
     PanResponder.create({
+      // Solo activar el pan responder si NO estamos editando
       onStartShouldSetPanResponder: () => !isEditing,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return (
-          !isEditing &&
-          (Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2)
-        );
-      },
+      onMoveShouldSetPanResponder: () => !isEditing,
+      
       onPanResponderGrant: () => {
         pan.setOffset({
-          x: (pan.x as any)._value,
-          y: (pan.y as any)._value,
+          x: (pan as any).__getValue().x,
+          y: (pan as any).__getValue().y,
         });
         pan.setValue({ x: 0, y: 0 });
       },
-      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
-        useNativeDriver: false,
-      }),
+      onPanResponderMove: Animated.event(
+        [null, { dx: pan.x, dy: pan.y }],
+        { useNativeDriver: false }
+      ),
       onPanResponderRelease: () => {
         pan.flattenOffset();
       },
-    }),
+    })
   ).current;
-
-  // Estilos dinámicos para el texto con borde
-  const textStyle = {
-    fontSize,
-    color,
-    fontFamily: "MemeFont",
-    // Si el texto es negro, ponemos borde blanco. Si no, borde negro.
-    textShadowColor: color === "black" ? "white" : "black",
-  };
 
   return (
     <Animated.View
@@ -71,27 +74,33 @@ export default function DraggableText({
         { transform: [{ translateX: pan.x }, { translateY: pan.y }] },
       ]}
     >
-      {isEditing ? (
+      <View style={styles.wrapper}>
         <TextInput
-          style={[styles.input, textStyle]}
-          defaultValue={text}
+          ref={inputRef}
+          value={text}
           onChangeText={onChangeText}
-          onBlur={() => setIsEditing(false)}
-          onSubmitEditing={() => setIsEditing(false)}
-          autoFocus
+          style={[
+            styles.text,
+            { fontSize, color, fontFamily: "MemeFont" },
+          ]}
+          placeholder={text.length === 0 ? "Escribe aquí..." : ""}
+          placeholderTextColor="rgba(255,255,255,0.5)"
           multiline
           textAlign="center"
-          placeholder={placeholder}
-          placeholderTextColor="gray"
+          onFocus={() => setIsEditing(true)}
+          onBlur={() => setIsEditing(false)}
+          onTouchStart={(e) => e.stopPropagation()}
         />
-      ) : (
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setIsEditing(true)}
-        >
-          <Text style={[styles.text, textStyle]}>{text || placeholder}</Text>
-        </TouchableOpacity>
-      )}
+
+        {showDelete && (
+          <TouchableOpacity 
+            style={styles.delete} 
+            onPress={onRemove}
+          >
+            <Text style={{ color: "white", fontWeight: "bold" }}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </Animated.View>
   );
 }
@@ -99,24 +108,27 @@ export default function DraggableText({
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    alignSelf: "center",
-    maxWidth: "90%",
-    zIndex: 10,
+  },
+  wrapper: {
+    alignItems: "center",
   },
   text: {
-    textAlign: "center",
     padding: 10,
-    // Este "truco" crea un borde definido alrededor del texto
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
-  },
-  input: {
     textAlign: "center",
-    padding: 5,
-    minWidth: 150,
-    backgroundColor: "rgba(255,255,255,0.15)", // Muy discreto
-    borderRadius: 4,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "rgba(0,0,0,0.1)",
+    textShadowColor: "rgba(0,0,0,0.75)",
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 3,
+    minWidth: 100,
+  },
+  delete: {
+    position: "absolute",
+    top: -15,
+    right: -15,
+    backgroundColor: "red",
+    width: 25,
+    height: 25,
+    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
