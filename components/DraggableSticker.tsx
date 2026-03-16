@@ -1,9 +1,9 @@
+import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
   Dimensions,
-  Image,
   PanResponder,
   StyleSheet,
   Text,
@@ -21,7 +21,6 @@ interface DraggableStickerProps {
   onSelect?: () => void;
   onRemove?: () => void;
 }
-
 export default function DraggableSticker({
   source,
   isGif = false,
@@ -108,11 +107,12 @@ export default function DraggableSticker({
           <ActivityIndicator size="large" color="#2196F3" />
         </View>
       ) : (
-        <Image
-          source={imageSource}
-          style={styles.stickerImage}
-          resizeMode="contain"
-        />
+       <Image
+  source={imageSource}
+  style={styles.stickerImage}
+  contentFit="contain"
+  autoplay={true} // Esto asegura que el GIF se anime
+/>
       )}
 
       {isSelected && !loading && (
@@ -164,4 +164,4 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 14,
   },
-});
+})

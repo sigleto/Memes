@@ -1,8 +1,11 @@
 import { useMeme } from "@/context/MemeContext";
 import { Anton_400Regular, useFonts } from "@expo-google-fonts/anton";
 import Slider from "@react-native-community/slider";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import React, { useRef, useState } from "react";
+import { captureRef } from 'react-native-view-shot';
+
 import {
   ActivityIndicator,
   Alert,
@@ -17,7 +20,6 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-import { captureRef } from "react-native-view-shot";
 import DraggableSticker from "./DraggableSticker";
 import DraggableText from "./DraggableText";
 
@@ -25,19 +27,13 @@ const { width } = Dimensions.get("window");
 
 export default function MemeCanvas() {
   const [fontsLoaded] = useFonts({ MemeFont: Anton_400Regular });
-
   const { image, setImage, stickers, removeSticker } = useMeme();
 
-  const [texts, setTexts] = useState<
-    { id: number; text: string }[]
-  >([]);
-
+  const [texts, setTexts] = useState<{ id: number; text: string }[]>([]);
   const [fontSize, setFontSize] = useState(35);
   const [textColor, setTextColor] = useState("white");
-
-  const [selectedStickerId, setSelectedStickerId] = useState<number | null>(
-    null
-  );
+  const [selectedStickerId, setSelectedStickerId] = useState<number | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
 
   const viewRef = useRef<View>(null);
 
@@ -52,48 +48,80 @@ export default function MemeCanvas() {
   }
 
   const addText = () => {
-    const newText = {
-      id: Date.now(),
-      text: "",
-    };
-
+    const newText = { id: Date.now(), text: "" };
     setTexts((prev) => [...prev, newText]);
   };
 
   const updateText = (id: number, newText: string) => {
-    setTexts((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, text: newText } : t))
-    );
+    setTexts((prev) => prev.map((t) => (t.id === id ? { ...t, text: newText } : t)));
   };
 
   const removeText = (id: number) => {
     setTexts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const shareMeme = async () => {
-    try {
-      const uri = await captureRef(viewRef, {
-        format: "png",
-        quality: 0.9,
-      });
-
-      await Sharing.shareAsync(uri);
-    } catch (error) {
-      Alert.alert("Error", "No se pudo generar o compartir el meme");
-    }
-  };
-
   const removeBackgroundImage = () => {
     Alert.alert("Eliminar imagen", "¿Eliminar la imagen de fondo?", [
       { text: "Cancelar", style: "cancel" },
-      {
-        text: "Eliminar",
-        style: "destructive",
-        onPress: () => setImage(null),
-      },
+      { text: "Eliminar", style: "destructive", onPress: () => setImage(null) },
     ]);
   };
 
+ const shareMeme = async () => {
+  try {
+    if (!image && stickers.length === 0 && texts.length === 0) {
+      Alert.alert("Error", "No hay nada para compartir");
+      return;
+    }
+
+    setIsSharing(true);
+
+    const onlyGifSticker = stickers.length === 1 && 
+                           stickers[0].isGif && 
+                           !image && 
+                           texts.length === 0;
+
+    if (onlyGifSticker) {
+      const fileName = `sticker-${stickers[0].id}.gif`;
+      const fileUri = FileSystem.cacheDirectory + fileName;
+      await FileSystem.downloadAsync(stickers[0].image, fileUri);
+      await Sharing.shareAsync(fileUri, {
+        mimeType: "image/gif",
+        dialogTitle: "Compartir GIF",
+        UTI: "com.compuserve.gif"
+      });
+    } else {
+      if (!viewRef.current) {
+        Alert.alert("Error", "No se pudo capturar la imagen");
+        return;
+      }
+
+      // 👇 IMPORTANTE: Deseleccionar cualquier sticker antes de capturar
+      setSelectedStickerId(null);
+
+      // Pequeña pausa para que se actualice la UI antes de capturar
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const uri = await captureRef(viewRef, {
+        format: "png",
+        quality: 1,
+        result: "tmpfile",
+      });
+
+      await Sharing.shareAsync(uri, {
+        mimeType: "image/png",
+        dialogTitle: "Compartir meme",
+        UTI: "public.png",
+      });
+    }
+
+  } catch (error) {
+    console.log("Error al compartir:", error);
+    Alert.alert("Error", "No se pudo generar o compartir el meme.");
+  } finally {
+    setIsSharing(false);
+  }
+};
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -124,6 +152,7 @@ export default function MemeCanvas() {
                 </>
               )}
 
+              {/* Stickers */}
               {stickers.map((sticker) => (
                 <DraggableSticker
                   key={sticker.id}
@@ -135,6 +164,7 @@ export default function MemeCanvas() {
                 />
               ))}
 
+              {/* Textos */}
               {texts.map((t) => (
                 <DraggableText
                   key={t.id}
@@ -143,7 +173,11 @@ export default function MemeCanvas() {
                   onRemove={() => removeText(t.id)}
                   fontSize={fontSize}
                   color={textColor}
-                  autoFocus={texts.length > 0 && t.id === texts[texts.length - 1].id && t.text === ""}
+                  autoFocus={
+                    texts.length > 0 &&
+                    t.id === texts[texts.length - 1].id &&
+                    t.text === ""
+                  }
                 />
               ))}
             </View>
@@ -154,10 +188,7 @@ export default function MemeCanvas() {
           </TouchableOpacity>
 
           <View style={styles.controls}>
-            <View style={styles.labelRow}>
-              <Text style={styles.label}>Tamaño: {Math.round(fontSize)}</Text>
-            </View>
-
+            <Text style={styles.label}>Tamaño: {Math.round(fontSize)}</Text>
             <Slider
               style={styles.slider}
               minimumValue={15}
@@ -167,7 +198,6 @@ export default function MemeCanvas() {
               minimumTrackTintColor="#2196F3"
               maximumTrackTintColor="#ccc"
             />
-
             <View style={styles.colors}>
               {colors.map((c) => (
                 <TouchableOpacity
@@ -183,8 +213,14 @@ export default function MemeCanvas() {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.button} onPress={shareMeme}>
-            <Text style={styles.buttonText}>Compartir meme 🚀</Text>
+          <TouchableOpacity 
+            style={[styles.button, isSharing && styles.buttonDisabled]} 
+            onPress={shareMeme}
+            disabled={isSharing}
+          >
+            <Text style={styles.buttonText}>
+              {isSharing ? "Compartiendo..." : "Compartir meme 🚀"}
+            </Text>
           </TouchableOpacity>
         </View>
       </TouchableWithoutFeedback>
@@ -193,31 +229,10 @@ export default function MemeCanvas() {
 }
 
 const styles = StyleSheet.create({
-  mainContainer: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-  },
-
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 20,
-  },
-
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 15,
-    color: "#333",
-  },
-
+  mainContainer: { flex: 1, backgroundColor: "#f5f5f5" },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 20 },
+  title: { fontSize: 28, fontWeight: "bold", marginBottom: 15, color: "#333" },
   memeWrapper: {
     width: width - 40,
     aspectRatio: 1,
@@ -226,7 +241,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#ddd",
     elevation: 5,
   },
-
   captureZone: {
     width: "100%",
     height: "100%",
@@ -235,14 +249,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#eee",
   },
-
-  image: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-    position: "absolute",
-  },
-
+  image: { width: "100%", height: "100%", resizeMode: "cover", position: "absolute" },
   imageDeleteButton: {
     position: "absolute",
     top: 15,
@@ -255,101 +262,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 100,
   },
-
-  imageDeleteText: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-
-  emptyCanvas: {
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-
-  emptyIcon: {
-    fontSize: 50,
-    marginBottom: 10,
-  },
-
-  emptyText: {
-    fontSize: 14,
-    color: "#888",
-    textAlign: "center",
-  },
-
-  addTextButton: {
-    marginTop: 15,
-    backgroundColor: "#2ecc71",
-    paddingHorizontal: 25,
-    paddingVertical: 12,
-    borderRadius: 25,
-  },
-
-  addTextButtonText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-
-  controls: {
-    marginTop: 20,
-    width: width - 40,
-    padding: 20,
-    backgroundColor: "white",
-    borderRadius: 15,
-    elevation: 2,
-  },
-
-  labelRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 5,
-  },
-
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#555",
-  },
-
-  slider: {
-    width: "100%",
-    height: 40,
-  },
-
-  colors: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginTop: 15,
-  },
-
-  color: {
-    width: 35,
-    height: 35,
-    borderRadius: 17.5,
-    borderWidth: 1,
-    borderColor: "#eee",
-  },
-
-  selectedColor: {
-    borderWidth: 3,
-    borderColor: "#2196F3",
-    transform: [{ scale: 1.1 }],
-  },
-
-  button: {
-    marginTop: 20,
-    backgroundColor: "#2196F3",
-    paddingHorizontal: 40,
-    paddingVertical: 15,
-    borderRadius: 30,
-  },
-
-  buttonText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
+  imageDeleteText: { color: "white", fontSize: 18, fontWeight: "bold" },
+  emptyCanvas: { justifyContent: "center", alignItems: "center", padding: 20 },
+  emptyIcon: { fontSize: 50, marginBottom: 10 },
+  emptyText: { fontSize: 14, color: "#888", textAlign: "center" },
+  addTextButton: { marginTop: 15, backgroundColor: "#2ecc71", paddingHorizontal: 25, paddingVertical: 12, borderRadius: 25 },
+  addTextButtonText: { color: "white", fontWeight: "bold", fontSize: 16 },
+  controls: { marginTop: 20, width: width - 40, padding: 20, backgroundColor: "white", borderRadius: 15, elevation: 2 },
+  label: { fontSize: 14, fontWeight: "600", color: "#555" },
+  slider: { width: "100%", height: 40 },
+  colors: { flexDirection: "row", justifyContent: "space-around", marginTop: 15 },
+  color: { width: 35, height: 35, borderRadius: 17.5, borderWidth: 1, borderColor: "#eee" },
+  selectedColor: { borderWidth: 3, borderColor: "#2196F3", transform: [{ scale: 1.1 }] },
+  button: { marginTop: 20, backgroundColor: "#2196F3", paddingHorizontal: 40, paddingVertical: 15, borderRadius: 30 },
+  buttonDisabled: { backgroundColor: "#cccccc" },
+  buttonText: { color: "white", fontWeight: "bold", fontSize: 16 },
 });
