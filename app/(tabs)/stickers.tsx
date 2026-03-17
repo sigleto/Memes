@@ -1,52 +1,184 @@
 import { useMeme } from "@/context/MemeContext";
-import { Image, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  FlatList,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-// GIFs directos de Giphy
-const stickerList = [
-  { image: "https://i.giphy.com/media/qlIaevmUNBmufFHCrr/giphy.gif", isGif: true },
-  { image: "https://i.giphy.com/media/ueoUc3gJ5E6Fa/giphy.gif", isGif: true },
-  { image: "https://i.giphy.com/media/Rfwlp9c5bA7R3s7Y5D/giphy.gif", isGif: true },
-  { image: "https://i.giphy.com/media/8j3CTd8YJtAv6/giphy.gif", isGif: true },
-  { image: "https://i.giphy.com/media/zH72yAqrMuczC/giphy.gif", isGif: true },
-  { image: "https://i.giphy.com/media/ycagKBYEmaili/giphy.gif", isGif: true },
-  { image: "https://i.giphy.com/media/xUA7aOLkviIdZ7UK40/giphy.gif", isGif: true },
-  { image: "https://i.giphy.com/media/KeWimTRIT6tdshf6G0/giphy.gif", isGif: true },
-  { image: "https://i.giphy.com/media/mIZ9rPeMKefm0/giphy.gif", isGif: true },
-  { image: "https://i.giphy.com/media/fmeTX8AURI4co/giphy.gif", isGif: true },
-  { image: "https://i.giphy.com/media/Nf8vX5K7AHcAg/giphy.gif", isGif: true },
-  { image: "https://i.giphy.com/media/UjYw9fdCEPwU8/giphy.gif", isGif: true },
-];
+const API_KEY = "jYTJri4TcIFaXNrlx7WRkYpTFZerGQbQ";
+
+const categories = ["funny", "reactions", "memes", "love", "sports"];
 
 export default function Stickers() {
   const { addSticker } = useMeme();
 
+  const [gifs, setGifs] = useState<any[]>([]);
+  const [query, setQuery] = useState("");
+  const [offset, setOffset] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const debounceRef = useRef<any>(null);
+
+  // 🔥 TRENDING
+  const fetchTrending = async (reset = false) => {
+    if (loading) return;
+
+    setLoading(true);
+
+    const newOffset = reset ? 0 : offset;
+
+    try {
+      const res = await fetch(
+        `https://api.giphy.com/v1/gifs/trending?api_key=${API_KEY}&limit=24&offset=${newOffset}`
+      );
+
+      const json = await res.json();
+
+      setGifs(reset ? json.data : [...gifs, ...json.data]);
+      setOffset(newOffset + 24);
+    } catch (e) {
+      console.log("Error trending:", e);
+    }
+
+    setLoading(false);
+  };
+
+  // 🔍 SEARCH con debounce
+  const searchGifs = (text: string) => {
+    setQuery(text);
+
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      if (!text) {
+        fetchTrending(true);
+        return;
+      }
+
+      try {
+        setLoading(true);
+
+        const res = await fetch(
+          `https://api.giphy.com/v1/gifs/search?api_key=${API_KEY}&q=${text}&limit=24`
+        );
+
+        const json = await res.json();
+
+        setGifs(json.data);
+        setOffset(24);
+      } catch (e) {
+        console.log("Error search:", e);
+      }
+
+      setLoading(false);
+    }, 400);
+  };
+
+  useEffect(() => {
+    fetchTrending(true);
+  }, []);
+
+  // 📥 Cargar más (scroll infinito)
+  const loadMore = () => {
+    if (!query) {
+      fetchTrending();
+    }
+  };
+
+  // 🎯 Render item
+  const renderItem = ({ item }: any) => (
+    <TouchableOpacity
+      onPress={() =>
+        addSticker({
+          image: item.images.original.url,
+          isGif: true,
+        })
+      }
+      style={styles.sticker}
+    >
+      <Image
+        source={{ uri: item.images.fixed_width.url }}
+        style={styles.image}
+      />
+    </TouchableOpacity>
+  );
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {stickerList.map((s, index) => (
-        <TouchableOpacity
-          key={index}
-          onPress={() => addSticker(s)}
-          style={styles.sticker}
-        >
-          <Image source={{ uri: s.image }} style={styles.image} />
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
+    <View style={{ flex: 1 }}>
+      {/* 🔍 BUSCADOR */}
+      <TextInput
+        placeholder="Buscar GIF..."
+        value={query}
+        onChangeText={searchGifs}
+        style={styles.input}
+      />
+
+      {/* 🟡 CATEGORÍAS */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ marginBottom: 10 }}
+      >
+        {categories.map((cat) => (
+          <TouchableOpacity
+            key={cat}
+            style={styles.categoryButton}
+            onPress={() => searchGifs(cat)}
+          >
+            <Text>{cat}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* 🔥 LISTADO */}
+      <FlatList
+        data={gifs}
+        keyExtractor={(item) => item.id}
+        numColumns={3}
+        renderItem={renderItem}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        contentContainerStyle={styles.container}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  input: {
+    backgroundColor: "#fff",
+    padding: 12,
+    margin: 10,
+    borderRadius: 10,
+    fontSize: 16,
+  },
   container: {
-    padding: 20,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
+    paddingHorizontal: 5,
   },
   sticker: {
-    margin: 10,
+    flex: 1,
+    margin: 5,
+    alignItems: "center",
   },
   image: {
-    width: 80,
-    height: 80,
+    width: 110,
+    height: 110,
+    borderRadius: 10,
+  },
+  categoryButton: {
+    backgroundColor: "#eee",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    marginHorizontal: 5,
+    marginLeft: 10,
   },
 });
