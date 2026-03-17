@@ -16,6 +16,7 @@ interface DraggableTextProps {
   fontSize: number;
   color: string;
   autoFocus?: boolean;
+  isCapturing?: boolean; // 🔥 NUEVO
 }
 
 export default function DraggableText({
@@ -25,6 +26,7 @@ export default function DraggableText({
   fontSize,
   color,
   autoFocus = false,
+  isCapturing = false, // 🔥 NUEVO
 }: DraggableTextProps) {
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const [isEditing, setIsEditing] = useState(false);
@@ -39,16 +41,18 @@ export default function DraggableText({
     }
   }, [autoFocus]);
 
-  // Mostrar el botón de borrar SOLO cuando está en modo edición
-  const showDelete = isEditing && text.length > 0;
+  // 🔥 Botón borrar SOLO si:
+  // - está editando
+  // - hay texto
+  // - NO estamos capturando
+  const showDelete = isEditing && text.length > 0 && !isCapturing;
 
-  // PanResponder - solo activo cuando NO estamos editando
+  // PanResponder solo activo si NO estamos editando
   const panResponder = useRef(
     PanResponder.create({
-      // Solo activar el pan responder si NO estamos editando
       onStartShouldSetPanResponder: () => !isEditing,
       onMoveShouldSetPanResponder: () => !isEditing,
-      
+
       onPanResponderGrant: () => {
         pan.setOffset({
           x: (pan as any).__getValue().x,
@@ -56,10 +60,12 @@ export default function DraggableText({
         });
         pan.setValue({ x: 0, y: 0 });
       },
+
       onPanResponderMove: Animated.event(
         [null, { dx: pan.x, dy: pan.y }],
         { useNativeDriver: false }
       ),
+
       onPanResponderRelease: () => {
         pan.flattenOffset();
       },
@@ -93,11 +99,8 @@ export default function DraggableText({
         />
 
         {showDelete && (
-          <TouchableOpacity 
-            style={styles.delete} 
-            onPress={onRemove}
-          >
-            <Text style={{ color: "white", fontWeight: "bold" }}>✕</Text>
+          <TouchableOpacity style={styles.delete} onPress={onRemove}>
+            <Text style={styles.deleteText}>✕</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -109,9 +112,11 @@ const styles = StyleSheet.create({
   container: {
     position: "absolute",
   },
+
   wrapper: {
     alignItems: "center",
   },
+
   text: {
     padding: 10,
     textAlign: "center",
@@ -120,6 +125,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
     minWidth: 100,
   },
+
   delete: {
     position: "absolute",
     top: -15,
@@ -130,5 +136,10 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
+  },
+
+  deleteText: {
+    color: "white",
+    fontWeight: "bold",
   },
 });

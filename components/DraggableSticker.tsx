@@ -20,6 +20,7 @@ interface DraggableStickerProps {
   isSelected?: boolean;
   onSelect?: () => void;
   onRemove?: () => void;
+  isCapturing?: boolean;
 }
 export default function DraggableSticker({
   source,
@@ -27,6 +28,7 @@ export default function DraggableSticker({
   isSelected = false,
   onSelect,
   onRemove,
+   isCapturing = false,
 }: DraggableStickerProps) {
   const pan = useRef(new Animated.ValueXY()).current;
   const [loading, setLoading] = useState(true);
@@ -115,7 +117,7 @@ export default function DraggableSticker({
 />
       )}
 
-      {isSelected && !loading && (
+      {isSelected && !loading && !isCapturing && (
         <View style={styles.removeButtonContainer} pointerEvents="box-none">
           <TouchableOpacity onPress={onRemove} style={styles.removeButton}>
             <Text style={styles.removeButtonText}>✕</Text>
