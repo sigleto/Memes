@@ -32,7 +32,9 @@ export default function MemeCanvas() {
   const [texts, setTexts] = useState<{ id: number; text: string }[]>([]);
   const [fontSize, setFontSize] = useState(35);
   const [textColor, setTextColor] = useState("white");
-  const [selectedStickerId, setSelectedStickerId] = useState<number | null>(null);
+  const [selectedStickerId, setSelectedStickerId] = useState<number | null>(
+    null,
+  );
   const [isSharing, setIsSharing] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false); // 🔥 NUEVO
 
@@ -55,7 +57,7 @@ export default function MemeCanvas() {
 
   const updateText = (id: number, newText: string) => {
     setTexts((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, text: newText } : t))
+      prev.map((t) => (t.id === id ? { ...t, text: newText } : t)),
     );
   };
 

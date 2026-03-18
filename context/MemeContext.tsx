@@ -29,14 +29,31 @@ export const MemeProvider = ({ children }: any) => {
   const [stickers, setStickers] = useState<Sticker[]>([]);
 
   const addSticker = (sticker: { image: any; isGif?: boolean }) => {
-    setStickers((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        image: sticker.image,
-        isGif: sticker.isGif || false,
-      },
-    ]);
+    setStickers((prev) => {
+      // 🔥 Si es GIF → eliminar GIFs anteriores
+      if (sticker.isGif) {
+        const withoutGifs = prev.filter((s) => !s.isGif);
+
+        return [
+          ...withoutGifs,
+          {
+            id: Date.now(),
+            image: sticker.image,
+            isGif: true,
+          },
+        ];
+      }
+
+      // 👉 stickers normales se acumulan
+      return [
+        ...prev,
+        {
+          id: Date.now(),
+          image: sticker.image,
+          isGif: false,
+        },
+      ];
+    });
   };
 
   const removeSticker = (id: number) => {

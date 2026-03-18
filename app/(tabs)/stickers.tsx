@@ -1,184 +1,292 @@
 import { useMeme } from "@/context/MemeContext";
-import { useEffect, useRef, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 
 const API_KEY = "jYTJri4TcIFaXNrlx7WRkYpTFZerGQbQ";
-
-const categories = ["funny", "reactions", "memes", "love", "sports"];
+const categories = ["divertido", "reaccion", "memes", "deportes"];
 
 export default function Stickers() {
-  const { addSticker } = useMeme();
+  const { addSticker, stickers } = useMeme();
 
   const [gifs, setGifs] = useState<any[]>([]);
-  const [query, setQuery] = useState("");
+  const [favorites, setFavorites] = useState<any[]>([]);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [favoritesLoading, setFavoritesLoading] = useState(true);
 
-  const debounceRef = useRef<any>(null);
+  useEffect(() => {
+    loadFavorites();
+    fetchTrending(true);
+  }, []);
 
-  // 🔥 TRENDING
+  const loadFavorites = async () => {
+    try {
+      setFavoritesLoading(true);
+      const data = await AsyncStorage.getItem("favorites");
+      setFavorites(data ? JSON.parse(data) : []);
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setFavoritesLoading(false);
+    }
+  };
+
+  const saveFavorites = async (newFavs: any[]) => {
+    await AsyncStorage.setItem("favorites", JSON.stringify(newFavs));
+    setFavorites([...newFavs]);
+  };
+
+  const addToFavorites = (gif: any) => {
+    const exists = favorites.some((f) => f.id === gif.id);
+    if (!exists) {
+      saveFavorites([gif, ...favorites]);
+    }
+  };
+
+  const removeFromFavorites = (gif: any) => {
+    const newFavs = favorites.filter((f) => f.id !== gif.id);
+    saveFavorites(newFavs);
+  };
+
   const fetchTrending = async (reset = false) => {
     if (loading) return;
 
     setLoading(true);
-
     const newOffset = reset ? 0 : offset;
 
     try {
       const res = await fetch(
-        `https://api.giphy.com/v1/gifs/trending?api_key=${API_KEY}&limit=24&offset=${newOffset}`
+        `https://api.giphy.com/v1/gifs/trending?api_key=${API_KEY}&limit=24&offset=${newOffset}`,
       );
-
       const json = await res.json();
 
       setGifs(reset ? json.data : [...gifs, ...json.data]);
       setOffset(newOffset + 24);
     } catch (e) {
-      console.log("Error trending:", e);
-    }
-
-    setLoading(false);
-  };
-
-  // 🔍 SEARCH con debounce
-  const searchGifs = (text: string) => {
-    setQuery(text);
-
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-
-    debounceRef.current = setTimeout(async () => {
-      if (!text) {
-        fetchTrending(true);
-        return;
-      }
-
-      try {
-        setLoading(true);
-
-        const res = await fetch(
-          `https://api.giphy.com/v1/gifs/search?api_key=${API_KEY}&q=${text}&limit=24`
-        );
-
-        const json = await res.json();
-
-        setGifs(json.data);
-        setOffset(24);
-      } catch (e) {
-        console.log("Error search:", e);
-      }
-
+      console.log(e);
+    } finally {
       setLoading(false);
-    }, 400);
-  };
-
-  useEffect(() => {
-    fetchTrending(true);
-  }, []);
-
-  // 📥 Cargar más (scroll infinito)
-  const loadMore = () => {
-    if (!query) {
-      fetchTrending();
     }
   };
 
-  // 🎯 Render item
-  const renderItem = ({ item }: any) => (
-    <TouchableOpacity
-      onPress={() =>
-        addSticker({
-          image: item.images.original.url,
-          isGif: true,
-        })
-      }
-      style={styles.sticker}
-    >
-      <Image
-        source={{ uri: item.images.fixed_width.url }}
-        style={styles.image}
-      />
-    </TouchableOpacity>
-  );
+  const searchGifs = async (text: string) => {
+    try {
+      setLoading(true);
+      const res = await fetch(
+        `https://api.giphy.com/v1/gifs/search?api_key=${API_KEY}&q=${text}&limit=24`,
+      );
+      const json = await res.json();
+      setGifs(json.data);
+      setOffset(24);
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderItem = ({ item }: any) => {
+    const isFav = favorites.some((f) => f.id === item.id);
+
+    // 🔥 Detectar si este GIF está seleccionado en el canvas
+    const isSelected = stickers.some(
+      (s) => s.isGif && s.image === item.images.original.url,
+    );
+
+    return (
+      <TouchableOpacity
+        onPress={() => {
+          if (isSelected) return;
+
+          addSticker({
+            image: item.images.original.url,
+            isGif: true,
+          });
+        }}
+        style={styles.sticker}
+      >
+        <Image
+          source={{ uri: item.images.fixed_width.url }}
+          style={styles.image}
+        />
+
+        {/* ⭐ SOLO AÑADIR (no quitar) */}
+        {!showFavorites && (
+          <TouchableOpacity
+            style={styles.favButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              addToFavorites(item);
+            }}
+          >
+            <Text style={{ fontSize: 18 }}>{isFav ? "⭐" : "☆"}</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* ❌ SOLO EN FAVORITOS */}
+        {showFavorites && (
+          <TouchableOpacity
+            style={styles.favButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              removeFromFavorites(item);
+            }}
+          >
+            <Text style={{ fontSize: 18 }}>❌</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* ✅ OVERLAY SELECCIONADO */}
+        {isSelected && (
+          <View style={styles.selectedOverlay}>
+            <Text style={styles.selectedText}>✓</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={{ flex: 1 }}>
-      {/* 🔍 BUSCADOR */}
-      <TextInput
-        placeholder="Buscar GIF..."
-        value={query}
-        onChangeText={searchGifs}
-        style={styles.input}
-      />
+      {/* TOPBAR */}
+      <View style={styles.topBar}>
+        {showFavorites ? (
+          <>
+            <TouchableOpacity onPress={() => setShowFavorites(false)}>
+              <Text style={styles.backText}>Volver</Text>
+            </TouchableOpacity>
 
-      {/* 🟡 CATEGORÍAS */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ marginBottom: 10 }}
-      >
-        {categories.map((cat) => (
-          <TouchableOpacity
-            key={cat}
-            style={styles.categoryButton}
-            onPress={() => searchGifs(cat)}
-          >
-            <Text>{cat}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+            <Text style={styles.title}>Favoritos</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.title}>GIFs</Text>
 
-      {/* 🔥 LISTADO */}
-      <FlatList
-        data={gifs}
-        keyExtractor={(item) => item.id}
-        numColumns={3}
-        renderItem={renderItem}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
-        contentContainerStyle={styles.container}
-      />
+            <TouchableOpacity
+              onPress={() => {
+                setShowFavorites(true);
+                loadFavorites();
+              }}
+            >
+              <Text style={styles.tab}>Favoritos</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+
+      {/* CATEGORÍAS */}
+      {!showFavorites && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesContainer}
+        >
+          {categories.map((cat) => (
+            <TouchableOpacity
+              key={cat}
+              style={styles.categoryButton}
+              onPress={() => searchGifs(cat)}
+            >
+              <Text style={styles.categoryText}>{cat}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* LISTA */}
+      {showFavorites && favoritesLoading ? (
+        <ActivityIndicator style={{ marginTop: 50 }} />
+      ) : (
+        <FlatList
+          data={showFavorites ? favorites : gifs}
+          keyExtractor={(item) => item.id}
+          numColumns={3}
+          renderItem={renderItem}
+          onEndReached={() => !showFavorites && fetchTrending()}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  input: {
-    backgroundColor: "#fff",
-    padding: 12,
-    margin: 10,
-    borderRadius: 10,
-    fontSize: 16,
-  },
-  container: {
-    paddingHorizontal: 5,
-  },
   sticker: {
     flex: 1,
     margin: 5,
-    alignItems: "center",
+    aspectRatio: 1,
   },
   image: {
-    width: 110,
-    height: 110,
+    width: "100%",
+    height: "100%",
     borderRadius: 10,
   },
+  favButton: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 15,
+    padding: 5,
+  },
+  selectedOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 10,
+  },
+  selectedText: {
+    color: "#fff",
+    fontSize: 30,
+    fontWeight: "bold",
+  },
+  topBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 15,
+    marginTop: 20,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  tab: {
+    fontSize: 20,
+  },
+  backText: {
+    fontSize: 20,
+  },
+  categoriesContainer: {
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+  },
   categoryButton: {
-    backgroundColor: "#eee",
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    marginHorizontal: 5,
-    marginLeft: 10,
+    backgroundColor: "#2196F3",
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 25,
+    marginRight: 10,
+  },
+  categoryText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: -2,
   },
 });
