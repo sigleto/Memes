@@ -187,21 +187,23 @@ export default function Stickers() {
 
       {/* CATEGORÍAS */}
       {!showFavorites && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesContainer}
-        >
-          {categories.map((cat) => (
-            <TouchableOpacity
-              key={cat}
-              style={styles.categoryButton}
-              onPress={() => searchGifs(cat)}
-            >
-              <Text style={styles.categoryText}>{cat}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <View style={styles.categoriesWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesContainer}
+          >
+            {categories.map((cat) => (
+              <TouchableOpacity
+                key={cat}
+                style={styles.categoryButton}
+                onPress={() => searchGifs(cat)}
+              >
+                <Text style={styles.categoryText}>{cat}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
       )}
 
       {/* LISTA */}
@@ -272,21 +274,31 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: 20,
   },
+  categoriesWrapper: {
+    height: 60, // Damos una altura fija al contenedor para que el ScrollView respire
+    marginVertical: 10,
+  },
   categoriesContainer: {
     paddingHorizontal: 10,
-    paddingBottom: 10,
+    alignItems: "center", // Centra los botones verticalmente dentro del scroll
   },
   categoryButton: {
     backgroundColor: "#2196F3",
-    paddingVertical: 10,
     paddingHorizontal: 18,
-    borderRadius: 25,
+    height: 40, // Altura fija para el botón
+    borderRadius: 20,
     marginRight: 10,
+    justifyContent: "center", // CENTRADO VERTICAL REAL
+    alignItems: "center", // CENTRADO HORIZONTAL REAL
   },
   categoryText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
-    marginTop: -2,
+    textAlign: "center",
+    includeFontPadding: false, // ELIMINA ESPACIO EXTRA EN ANDROID
+    textAlignVertical: "center", // FUERZA CENTRADO EN ANDROID
+    marginTop: 0, // ASEGÚRATE DE QUE ESTO SEA 0
+    padding: 0, // ASEGÚRATE DE QUE ESTO SEA 0
   },
 });

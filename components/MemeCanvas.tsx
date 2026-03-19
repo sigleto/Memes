@@ -3,14 +3,13 @@ import { Anton_400Regular, useFonts } from "@expo-google-fonts/anton";
 import Slider from "@react-native-community/slider";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
-import React, { useRef, useState } from "react";
-import { captureRef } from "react-native-view-shot";
-
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Dimensions,
-  Image,
+  Easing,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -20,6 +19,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { captureRef } from "react-native-view-shot";
 import DraggableSticker from "./DraggableSticker";
 import DraggableText from "./DraggableText";
 
@@ -36,11 +36,37 @@ export default function MemeCanvas() {
     null,
   );
   const [isSharing, setIsSharing] = useState(false);
-  const [isCapturing, setIsCapturing] = useState(false); // 🔥 NUEVO
+  const [isCapturing, setIsCapturing] = useState(false);
 
   const viewRef = useRef<View>(null);
 
+  // 🔥 Valor animado para el latido
+  const imageScale = useRef(new Animated.Value(1)).current;
+
   const colors = ["white", "#f1c40f", "#e74c3c", "#2ecc71", "#9b59b6", "black"];
+
+  // 🔥 Efecto latido al cambiar la imagen
+  useEffect(() => {
+    if (!image) return;
+
+    // opcional: arrancar desde un poco más pequeña
+    imageScale.setValue(0.9);
+
+    Animated.sequence([
+      Animated.timing(imageScale, {
+        toValue: 1.05,
+        duration: 140,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(imageScale, {
+        toValue: 1,
+        duration: 120,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [image, imageScale]);
 
   if (!fontsLoaded) {
     return (
@@ -104,11 +130,9 @@ export default function MemeCanvas() {
           return;
         }
 
-        // 🔥 activar modo captura (oculta UI)
         setIsCapturing(true);
         setSelectedStickerId(null);
 
-        // ⏱️ Espera para que React renderice sin botones
         await new Promise((resolve) => setTimeout(resolve, 150));
 
         const uri = await captureRef(viewRef, {
@@ -117,7 +141,7 @@ export default function MemeCanvas() {
           result: "tmpfile",
         });
 
-        setIsCapturing(false); // 🔥 volver a normal
+        setIsCapturing(false);
 
         await Sharing.shareAsync(uri, {
           mimeType: "image/png",
@@ -154,9 +178,15 @@ export default function MemeCanvas() {
                 </View>
               ) : (
                 <>
-                  <Image source={{ uri: image }} style={styles.image} />
+                  {/* 🔥 imagen animada */}
+                  <Animated.Image
+                    source={{ uri: image }}
+                    style={[
+                      styles.image,
+                      { transform: [{ scale: imageScale }] },
+                    ]}
+                  />
 
-                  {/* ❌ ocultar en captura */}
                   {!isCapturing && (
                     <TouchableOpacity
                       style={styles.imageDeleteButton}
@@ -168,7 +198,6 @@ export default function MemeCanvas() {
                 </>
               )}
 
-              {/* Stickers */}
               {stickers.map((sticker) => (
                 <DraggableSticker
                   key={sticker.id}
@@ -177,11 +206,10 @@ export default function MemeCanvas() {
                   isSelected={selectedStickerId === sticker.id}
                   onSelect={() => setSelectedStickerId(sticker.id)}
                   onRemove={() => removeSticker(sticker.id)}
-                  isCapturing={isCapturing} // 🔥 IMPORTANTE
+                  isCapturing={isCapturing}
                 />
               ))}
 
-              {/* Textos */}
               {texts.map((t) => (
                 <DraggableText
                   key={t.id}
@@ -190,7 +218,7 @@ export default function MemeCanvas() {
                   onRemove={() => removeText(t.id)}
                   fontSize={fontSize}
                   color={textColor}
-                  isCapturing={isCapturing} // 🔥 IMPORTANTE
+                  isCapturing={isCapturing}
                   autoFocus={
                     texts.length > 0 &&
                     t.id === texts[texts.length - 1].id &&

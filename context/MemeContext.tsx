@@ -2,13 +2,14 @@ import React, { createContext, useContext, useState } from "react";
 
 export type Sticker = {
   id: number;
-  image: any; // require(...) o URL
-  isGif?: boolean; // indicador de GIF
+  image: string | any; // puede ser URL o require(...)
+  isGif?: boolean;
 };
 
 type MemeContextType = {
   image: string | null;
   setImage: (img: string | null) => void;
+  clearStickers: () => void;
 
   topText: string;
   bottomText: string;
@@ -16,7 +17,7 @@ type MemeContextType = {
   setBottomText: (text: string) => void;
 
   stickers: Sticker[];
-  addSticker: (sticker: { image: any; isGif?: boolean }) => void;
+  addSticker: (sticker: { image: string | any; isGif?: boolean }) => void;
   removeSticker: (id: number) => void;
 };
 
@@ -28,31 +29,16 @@ export const MemeProvider = ({ children }: any) => {
   const [bottomText, setBottomText] = useState("");
   const [stickers, setStickers] = useState<Sticker[]>([]);
 
-  const addSticker = (sticker: { image: any; isGif?: boolean }) => {
+  const addSticker = (sticker: { image: string | any; isGif?: boolean }) => {
     setStickers((prev) => {
-      // 🔥 Si es GIF → eliminar GIFs anteriores
       if (sticker.isGif) {
         const withoutGifs = prev.filter((s) => !s.isGif);
-
         return [
           ...withoutGifs,
-          {
-            id: Date.now(),
-            image: sticker.image,
-            isGif: true,
-          },
+          { id: Date.now(), image: sticker.image, isGif: true },
         ];
       }
-
-      // 👉 stickers normales se acumulan
-      return [
-        ...prev,
-        {
-          id: Date.now(),
-          image: sticker.image,
-          isGif: false,
-        },
-      ];
+      return [...prev, { id: Date.now(), image: sticker.image, isGif: false }];
     });
   };
 
@@ -60,11 +46,22 @@ export const MemeProvider = ({ children }: any) => {
     setStickers((prev) => prev.filter((s) => s.id !== id));
   };
 
+  const clearStickers = () => setStickers([]);
+
+  // 🔹 Acepta null para compatibilidad TypeScript
+  const selectTemplate = (img: string | null) => {
+    setImage(img);
+    if (img !== null) {
+      clearStickers();
+    }
+  };
+
   return (
     <MemeContext.Provider
       value={{
         image,
-        setImage,
+        setImage: selectTemplate,
+        clearStickers,
         topText,
         bottomText,
         setTopText,

@@ -4,7 +4,7 @@
     "slug": "Memes",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/icono.png",
     "scheme": "memes",
     "userInterfaceStyle": "automatic",
 
@@ -24,10 +24,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
 
-      "permissions": [
-        "CAMERA",
-        "READ_MEDIA_IMAGES"
-      ]
+      "permissions": ["CAMERA", "READ_MEDIA_IMAGES"]
     },
 
     "web": {
