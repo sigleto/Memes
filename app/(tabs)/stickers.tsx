@@ -13,7 +13,17 @@ import {
 } from "react-native";
 
 const API_KEY = "jYTJri4TcIFaXNrlx7WRkYpTFZerGQbQ";
-const categories = ["divertido", "reaccion", "memes", "deportes"];
+
+const categories = [
+  { label: "Divertido", query: "funny" },
+  { label: "Reacción", query: "reaction" },
+  { label: "Memes", query: "memes" },
+  { label: "Deportes", query: "sports" },
+  { label: "Animales", query: "animals" },
+  { label: "Amor", query: "love" },
+  { label: "Fail", query: "fail" },
+  { label: "Retro", query: "retro" },
+];
 
 export default function Stickers() {
   const { addSticker, stickers } = useMeme();
@@ -99,7 +109,6 @@ export default function Stickers() {
   const renderItem = ({ item }: any) => {
     const isFav = favorites.some((f) => f.id === item.id);
 
-    // 🔥 Detectar si este GIF está seleccionado en el canvas
     const isSelected = stickers.some(
       (s) => s.isGif && s.image === item.images.original.url,
     );
@@ -121,7 +130,6 @@ export default function Stickers() {
           style={styles.image}
         />
 
-        {/* ⭐ SOLO AÑADIR (no quitar) */}
         {!showFavorites && (
           <TouchableOpacity
             style={styles.favButton}
@@ -134,7 +142,6 @@ export default function Stickers() {
           </TouchableOpacity>
         )}
 
-        {/* ❌ SOLO EN FAVORITOS */}
         {showFavorites && (
           <TouchableOpacity
             style={styles.favButton}
@@ -147,7 +154,6 @@ export default function Stickers() {
           </TouchableOpacity>
         )}
 
-        {/* ✅ OVERLAY SELECCIONADO */}
         {isSelected && (
           <View style={styles.selectedOverlay}>
             <Text style={styles.selectedText}>✓</Text>
@@ -195,11 +201,11 @@ export default function Stickers() {
           >
             {categories.map((cat) => (
               <TouchableOpacity
-                key={cat}
+                key={cat.query}
                 style={styles.categoryButton}
-                onPress={() => searchGifs(cat)}
+                onPress={() => searchGifs(cat.query)}
               >
-                <Text style={styles.categoryText}>{cat}</Text>
+                <Text style={styles.categoryText}>{cat.label}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -275,30 +281,30 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   categoriesWrapper: {
-    height: 60, // Damos una altura fija al contenedor para que el ScrollView respire
+    height: 60,
     marginVertical: 10,
   },
   categoriesContainer: {
     paddingHorizontal: 10,
-    alignItems: "center", // Centra los botones verticalmente dentro del scroll
+    alignItems: "center",
   },
   categoryButton: {
     backgroundColor: "#2196F3",
     paddingHorizontal: 18,
-    height: 40, // Altura fija para el botón
+    height: 40,
     borderRadius: 20,
     marginRight: 10,
-    justifyContent: "center", // CENTRADO VERTICAL REAL
-    alignItems: "center", // CENTRADO HORIZONTAL REAL
+    justifyContent: "center",
+    alignItems: "center",
   },
   categoryText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
     textAlign: "center",
-    includeFontPadding: false, // ELIMINA ESPACIO EXTRA EN ANDROID
-    textAlignVertical: "center", // FUERZA CENTRADO EN ANDROID
-    marginTop: 0, // ASEGÚRATE DE QUE ESTO SEA 0
-    padding: 0, // ASEGÚRATE DE QUE ESTO SEA 0
+    includeFontPadding: false,
+    textAlignVertical: "center",
+    marginTop: 0,
+    padding: 0,
   },
 });

@@ -173,7 +173,7 @@ export default function MemeCanvas() {
                 <View style={styles.emptyCanvas}>
                   <Text style={styles.emptyIcon}>🎨</Text>
                   <Text style={styles.emptyText}>
-                    Usa la pestaña "Subir" para añadir imagen
+                     Usa el menú inferior para añadir imagen
                   </Text>
                 </View>
               ) : (
