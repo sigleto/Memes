@@ -20,7 +20,6 @@
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/images/Icono.png"
-        
       },
 
       "permissions": ["CAMERA", "READ_MEDIA_IMAGES"]
@@ -33,6 +32,13 @@
 
     "plugins": [
       "expo-router",
+
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-6921150380725872~9048669945"
+        }
+      ],
 
       [
         "expo-splash-screen",

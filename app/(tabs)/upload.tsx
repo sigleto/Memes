@@ -1,3 +1,4 @@
+import AdBanner from "@/components/AdBanner";
 import { useMeme } from "@/context/MemeContext";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -6,113 +7,138 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import ImagePicker from "react-native-image-crop-picker";
-
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function UploadScreen() {
   const { setImage } = useMeme();
   const [loading, setLoading] = useState(false);
-  
+  const insets = useSafeAreaInsets();
 
   const pickImage = async () => {
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const image = await ImagePicker.openPicker({
-      width: 1024,
-      height: 1024,
-      cropping: true,
-      compressImageQuality: 0.9,
-      mediaType: "photo",
-    });
+      const image = await ImagePicker.openPicker({
+        width: 1024,
+        height: 1024,
+        cropping: true,
+        compressImageQuality: 0.9,
+        mediaType: "photo",
+      });
 
-    setImage(image.path);
-    router.back();
-  } catch (error) {
-    console.log(error);
-  } finally {
-    setLoading(false);
-  }
-};
+      setImage(image.path);
+      router.back();
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-const takePhoto = async () => {
-  try {
-    setLoading(true);
+  const takePhoto = async () => {
+    try {
+      setLoading(true);
 
-    const image = await ImagePicker.openCamera({
-      width: 1024,
-      height: 1024,
-      cropping: true,
-      compressImageQuality: 0.9,
-      mediaType: "photo",
-    });
+      const image = await ImagePicker.openCamera({
+        width: 1024,
+        height: 1024,
+        cropping: true,
+        compressImageQuality: 0.9,
+        mediaType: "photo",
+      });
 
-    setImage(image.path);
-    router.back();
-  } catch (error) {
-    console.log(error);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  
+      setImage(image.path);
+      router.back();
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Añadir imagen</Text>
-
-      <TouchableOpacity
-        style={[styles.optionButton, loading && styles.disabledButton]}
-        onPress={pickImage}
-        disabled={loading}
+    <View style={styles.screen}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.container,
+          {
+            // Espacio para el banner + el menú inferior
+            paddingBottom: 120 + insets.bottom,
+          },
+        ]}
       >
-        <View style={styles.iconContainer}>
-          <Text style={styles.icon}>🖼️</Text>
-        </View>
-        <View style={styles.textContainer}>
-          <Text style={styles.optionTitle}>Galería</Text>
-          <Text style={styles.optionDescription}>
-            Selecciona una imagen de tu biblioteca
+        <Text style={styles.title}>Añadir imagen</Text>
+
+        <TouchableOpacity
+          style={[styles.optionButton, loading && styles.disabledButton]}
+          onPress={pickImage}
+          disabled={loading}
+        >
+          <View style={styles.iconContainer}>
+            <Text style={styles.icon}>🖼️</Text>
+          </View>
+          <View style={styles.textContainer}>
+            <Text style={styles.optionTitle}>Galería</Text>
+            <Text style={styles.optionDescription}>
+              Selecciona una imagen de tu biblioteca
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.optionButton, loading && styles.disabledButton]}
+          onPress={takePhoto}
+          disabled={loading}
+        >
+          <View style={styles.iconContainer}>
+            <Text style={styles.icon}>📸</Text>
+          </View>
+          <View style={styles.textContainer}>
+            <Text style={styles.optionTitle}>Cámara</Text>
+            <Text style={styles.optionDescription}>
+              Toma una foto ahora mismo
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <View style={styles.infoBox}>
+          <Text style={styles.infoText}>
+            Arrastra el recuadro azul para seleccionar la parte de la imagen que
+            quieres usar.
           </Text>
         </View>
-      </TouchableOpacity>
+      </ScrollView>
 
-      <TouchableOpacity
-        style={[styles.optionButton, loading && styles.disabledButton]}
-        onPress={takePhoto}
-        disabled={loading}
+      {/* Banner fijo - ahora posicionado ENCIMA del menú inferior */}
+      <View
+        style={[
+          styles.bannerContainer,
+          {
+            paddingBottom: insets.bottom,
+            // Posicionar justo encima del menú inferior
+            bottom: 130, // 80 (altura del menú) + 50 (bottom del menú)
+            zIndex: 1000,
+            elevation: 1000,
+          },
+        ]}
       >
-        <View style={styles.iconContainer}>
-          <Text style={styles.icon}>📸</Text>
-        </View>
-        <View style={styles.textContainer}>
-          <Text style={styles.optionTitle}>Cámara</Text>
-          <Text style={styles.optionDescription}>
-            Toma una foto ahora mismo
-          </Text>
-        </View>
-      </TouchableOpacity>
-
-      <View style={styles.infoBox}>
-        <Text style={styles.infoText}>
-          Arrastra el recuadro azul para seleccionar la parte de la imagen que
-          quieres usar.
-        </Text>
+        <AdBanner />
       </View>
-
-     
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
   container: {
     flexGrow: 1,
     padding: 20,
-    backgroundColor: "#f5f5f5",
   },
   title: {
     fontSize: 28,
@@ -167,6 +193,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 15,
     marginTop: 30,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: "#2196F3",
   },
@@ -175,5 +202,14 @@ const styles = StyleSheet.create({
     color: "#1976D2",
     textAlign: "center",
     lineHeight: 20,
+  },
+  bannerContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    borderTopWidth: 1,
+    borderTopColor: "#ddd",
+    paddingVertical: 5,
   },
 });

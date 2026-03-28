@@ -1,3 +1,4 @@
+import AdBanner from "@/components/AdBanner";
 import { useMeme } from "@/context/MemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
@@ -11,9 +12,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function Templates() {
   const { setImage, image } = useMeme();
+  const insets = useSafeAreaInsets();
 
   const [templates, setTemplates] = useState<any[]>([]);
   const [favorites, setFavorites] = useState<any[]>([]);
@@ -111,59 +114,85 @@ export default function Templates() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* 🔝 TOP BAR */}
-      <View style={styles.topBar}>
-        {showFavorites ? (
-          <View style={styles.row}>
-            <TouchableOpacity
-              onPress={() => setShowFavorites(false)}
-              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-            >
-              <Text style={styles.backText}>← Volver</Text>
-            </TouchableOpacity>
-            <Text style={styles.title}>Mis Favoritos</Text>
-            <View style={{ width: 60 }} />
-          </View>
-        ) : (
-          <View style={styles.row}>
-            <Text style={styles.title}>Plantillas</Text>
-            <TouchableOpacity
-              onPress={() => {
-                setShowFavorites(true);
-                loadFavorites();
-              }}
-              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-            >
-              <Text style={styles.tab}>⭐ Favoritos</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
+    <View style={styles.screen}>
+      <SafeAreaView style={styles.container}>
+        {/* 🔝 TOP BAR */}
+        <View style={styles.topBar}>
+          {showFavorites ? (
+            <View style={styles.row}>
+              <TouchableOpacity
+                onPress={() => setShowFavorites(false)}
+                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+              >
+                <Text style={styles.backText}>← Volver</Text>
+              </TouchableOpacity>
+              <Text style={styles.title}>Mis Favoritos</Text>
+              <View style={{ width: 60 }} />
+            </View>
+          ) : (
+            <View style={styles.row}>
+              <Text style={styles.title}>Plantillas</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowFavorites(true);
+                  loadFavorites();
+                }}
+                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+              >
+                <Text style={styles.tab}>⭐ Favoritos</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
 
-      {/* 📦 LISTA */}
-      <View style={{ flex: 1 }}>
-        {loading || (showFavorites && favoritesLoading) ? (
-          <ActivityIndicator
-            size="large"
-            color="blue"
-            style={{ marginTop: 50 }}
-          />
-        ) : (
-          <FlatList
-            data={showFavorites ? favorites : templates}
-            keyExtractor={(item) => item.id.toString()}
-            numColumns={3}
-            renderItem={renderItem}
-            contentContainerStyle={styles.listPadding}
-          />
-        )}
+        {/* 📦 LISTA */}
+        <View style={{ flex: 1 }}>
+          {loading || (showFavorites && favoritesLoading) ? (
+            <ActivityIndicator
+              size="large"
+              color="blue"
+              style={{ marginTop: 50 }}
+            />
+          ) : (
+            <FlatList
+              data={showFavorites ? favorites : templates}
+              keyExtractor={(item) => item.id.toString()}
+              numColumns={3}
+              renderItem={renderItem}
+              contentContainerStyle={[
+                styles.listPadding,
+                {
+                  paddingBottom: 140 + insets.bottom, // Espacio para el banner y menú
+                },
+              ]}
+            />
+          )}
+        </View>
+      </SafeAreaView>
+
+      {/* Banner fijo - posicionado encima del menú inferior */}
+      <View
+        style={[
+          styles.bannerContainer,
+          {
+            paddingBottom: insets.bottom,
+            bottom: 130, // Altura del menú (80) + bottom del menú (50)
+            zIndex: 1000,
+            elevation: 1000,
+          },
+        ]}
+      >
+        <AdBanner />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
   container: {
     flex: 1,
     backgroundColor: "#fff",
@@ -175,7 +204,6 @@ const styles = StyleSheet.create({
     borderBottomColor: "#eee",
     backgroundColor: "#fff",
     marginTop: 20,
-    // Estas 3 líneas son vitales para que los botones respondan
     zIndex: 1000,
     elevation: 10,
     position: "relative",
@@ -201,7 +229,6 @@ const styles = StyleSheet.create({
   },
   listPadding: {
     padding: 5,
-    paddingBottom: 20,
   },
   template: {
     flex: 1 / 3,
@@ -239,5 +266,14 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 24,
     fontWeight: "bold",
+  },
+  bannerContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    borderTopWidth: 1,
+    borderTopColor: "#ddd",
+    paddingVertical: 3,
   },
 });

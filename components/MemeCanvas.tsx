@@ -23,11 +23,17 @@ import { captureRef } from "react-native-view-shot";
 import DraggableSticker from "./DraggableSticker";
 import DraggableText from "./DraggableText";
 
+// 🔥 ADS
+import AdBanner from "@/components/AdBanner";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { loadInterstitial, showInterstitial } from "./AdInterstitial";
+
 const { width } = Dimensions.get("window");
 
 export default function MemeCanvas() {
   const [fontsLoaded] = useFonts({ MemeFont: Anton_400Regular });
   const { image, setImage, stickers, removeSticker } = useMeme();
+  const insets = useSafeAreaInsets();
 
   const [texts, setTexts] = useState<{ id: number; text: string }[]>([]);
   const [fontSize, setFontSize] = useState(35);
@@ -40,16 +46,19 @@ export default function MemeCanvas() {
 
   const viewRef = useRef<View>(null);
 
-  // 🔥 Valor animado para el latido
   const imageScale = useRef(new Animated.Value(1)).current;
 
   const colors = ["white", "#f1c40f", "#e74c3c", "#2ecc71", "#9b59b6", "black"];
 
-  // 🔥 Efecto latido al cambiar la imagen
+  // 🔥 Precargar interstitial
+  useEffect(() => {
+    loadInterstitial();
+  }, []);
+
+  // 🔥 Animación imagen
   useEffect(() => {
     if (!image) return;
 
-    // opcional: arrancar desde un poco más pequeña
     imageScale.setValue(0.9);
 
     Animated.sequence([
@@ -104,6 +113,9 @@ export default function MemeCanvas() {
         Alert.alert("Error", "No hay nada para compartir");
         return;
       }
+
+      // 🔥 MOSTRAR INTERSTITIAL
+      showInterstitial();
 
       setIsSharing(true);
 
@@ -173,12 +185,11 @@ export default function MemeCanvas() {
                 <View style={styles.emptyCanvas}>
                   <Text style={styles.emptyIcon}>🎨</Text>
                   <Text style={styles.emptyText}>
-                     Usa el menú inferior para añadir imagen
+                    Usa el menú inferior para añadir imagen
                   </Text>
                 </View>
               ) : (
                 <>
-                  {/* 🔥 imagen animada */}
                   <Animated.Image
                     source={{ uri: image }}
                     style={[
@@ -268,6 +279,21 @@ export default function MemeCanvas() {
               {isSharing ? "Compartiendo..." : "Compartir meme 🚀"}
             </Text>
           </TouchableOpacity>
+
+          {/* 🔥 BANNER - Ahora posicionado más abajo */}
+          <View
+            style={[
+              styles.bannerWrapper,
+              {
+                paddingBottom: insets.bottom,
+                bottom: 150, // Aumenta este valor para mover el banner más abajo (más separado del contenido)
+                zIndex: 1000,
+                elevation: 1000,
+              },
+            ]}
+          >
+            <AdBanner />
+          </View>
         </View>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
@@ -412,5 +438,15 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
     fontSize: 16,
+  },
+
+  bannerWrapper: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    borderTopWidth: 1,
+    borderTopColor: "#ddd",
+    paddingVertical: 5,
   },
 });

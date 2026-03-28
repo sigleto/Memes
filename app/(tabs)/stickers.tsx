@@ -1,3 +1,4 @@
+import AdBanner from "@/components/AdBanner";
 import { useMeme } from "@/context/MemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
@@ -11,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const API_KEY = "jYTJri4TcIFaXNrlx7WRkYpTFZerGQbQ";
 
@@ -27,6 +29,7 @@ const categories = [
 
 export default function Stickers() {
   const { addSticker, stickers } = useMeme();
+  const insets = useSafeAreaInsets();
 
   const [gifs, setGifs] = useState<any[]>([]);
   const [favorites, setFavorites] = useState<any[]>([]);
@@ -164,7 +167,7 @@ export default function Stickers() {
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.screen}>
       {/* TOPBAR */}
       <View style={styles.topBar}>
         {showFavorites ? (
@@ -222,13 +225,35 @@ export default function Stickers() {
           numColumns={3}
           renderItem={renderItem}
           onEndReached={() => !showFavorites && fetchTrending()}
+          contentContainerStyle={{
+            paddingBottom: 140 + insets.bottom, // Espacio para el banner y menú
+          }}
         />
       )}
+
+      {/* Banner fijo - posicionado encima del menú inferior */}
+      <View
+        style={[
+          styles.bannerContainer,
+          {
+            paddingBottom: insets.bottom,
+            bottom: 130, // Altura del menú (80) + bottom del menú (50)
+            zIndex: 1000,
+            elevation: 1000,
+          },
+        ]}
+      >
+        <AdBanner />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
   sticker: {
     flex: 1,
     margin: 5,
@@ -306,5 +331,14 @@ const styles = StyleSheet.create({
     textAlignVertical: "center",
     marginTop: 0,
     padding: 0,
+  },
+  bannerContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    borderTopWidth: 1,
+    borderTopColor: "#ddd",
+    paddingVertical: 3,
   },
 });
