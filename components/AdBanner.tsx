@@ -23,7 +23,7 @@ export default function AdBanner() {
     >
       <BannerAd
         unitId={adUnitId}
-        size={BannerAdSize.ADAPTIVE_BANNER}
+        size={BannerAdSize.BANNER} // 👈 Cambiado a BANNER estándar
         onAdLoaded={() => setLoaded(true)}
         onAdFailedToLoad={(error) => {
           console.log("Banner error:", error);

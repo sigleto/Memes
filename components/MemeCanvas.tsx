@@ -1,7 +1,9 @@
 import { useMeme } from "@/context/MemeContext";
+import { shareImageAndAudio } from "@/utils/shareMemeAssets";
 import { Anton_400Regular, useFonts } from "@expo-google-fonts/anton";
 import Slider from "@react-native-community/slider";
 import * as FileSystem from "expo-file-system/legacy";
+import { router, type Href } from "expo-router";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -20,20 +22,15 @@ import {
   View,
 } from "react-native";
 import { captureRef } from "react-native-view-shot";
+import { loadInterstitial, showInterstitial } from "./AdInterstitial";
 import DraggableSticker from "./DraggableSticker";
 import DraggableText from "./DraggableText";
-
-// 🔥 ADS
-import AdBanner from "@/components/AdBanner";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { loadInterstitial, showInterstitial } from "./AdInterstitial";
 
 const { width } = Dimensions.get("window");
 
 export default function MemeCanvas() {
   const [fontsLoaded] = useFonts({ MemeFont: Anton_400Regular });
-  const { image, setImage, stickers, removeSticker } = useMeme();
-  const insets = useSafeAreaInsets();
+  const { image, setImage, stickers, removeSticker, audioUri } = useMeme();
 
   const [texts, setTexts] = useState<{ id: number; text: string }[]>([]);
   const [fontSize, setFontSize] = useState(35);
@@ -45,17 +42,14 @@ export default function MemeCanvas() {
   const [isCapturing, setIsCapturing] = useState(false);
 
   const viewRef = useRef<View>(null);
-
   const imageScale = useRef(new Animated.Value(1)).current;
 
   const colors = ["white", "#f1c40f", "#e74c3c", "#2ecc71", "#9b59b6", "black"];
 
-  // 🔥 Precargar interstitial
   useEffect(() => {
     loadInterstitial();
   }, []);
 
-  // 🔥 Animación imagen
   useEffect(() => {
     if (!image) return;
 
@@ -86,8 +80,7 @@ export default function MemeCanvas() {
   }
 
   const addText = () => {
-    const newText = { id: Date.now(), text: "" };
-    setTexts((prev) => [...prev, newText]);
+    setTexts((prev) => [...prev, { id: Date.now(), text: "" }]);
   };
 
   const updateText = (id: number, newText: string) => {
@@ -114,9 +107,7 @@ export default function MemeCanvas() {
         return;
       }
 
-      // 🔥 MOSTRAR INTERSTITIAL
       showInterstitial();
-
       setIsSharing(true);
 
       const onlyGifSticker =
@@ -125,10 +116,45 @@ export default function MemeCanvas() {
         !image &&
         texts.length === 0;
 
+      if (audioUri) {
+        if (onlyGifSticker) {
+          const fileName = `sticker-${stickers[0].id}.gif`;
+          const fileUri = FileSystem.cacheDirectory + fileName;
+          await FileSystem.downloadAsync(stickers[0].image, fileUri);
+          await shareImageAndAudio(
+            fileUri,
+            audioUri,
+            "Compartir meme con imagen y audio",
+          );
+        } else {
+          if (!viewRef.current) {
+            Alert.alert("Error", "No se pudo capturar la imagen");
+            return;
+          }
+
+          setIsCapturing(true);
+          setSelectedStickerId(null);
+          await new Promise((resolve) => setTimeout(resolve, 150));
+
+          const pngUri = await captureRef(viewRef, {
+            format: "png",
+            quality: 1,
+            result: "tmpfile",
+          });
+
+          setIsCapturing(false);
+          await shareImageAndAudio(
+            pngUri,
+            audioUri,
+            "Compartir meme con imagen y audio",
+          );
+        }
+        return;
+      }
+
       if (onlyGifSticker) {
         const fileName = `sticker-${stickers[0].id}.gif`;
         const fileUri = FileSystem.cacheDirectory + fileName;
-
         await FileSystem.downloadAsync(stickers[0].image, fileUri);
 
         await Sharing.shareAsync(fileUri, {
@@ -144,7 +170,6 @@ export default function MemeCanvas() {
 
         setIsCapturing(true);
         setSelectedStickerId(null);
-
         await new Promise((resolve) => setTimeout(resolve, 150));
 
         const uri = await captureRef(viewRef, {
@@ -240,9 +265,18 @@ export default function MemeCanvas() {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.addTextButton} onPress={addText}>
-            <Text style={styles.addTextButtonText}>➕ Añadir texto</Text>
-          </TouchableOpacity>
+          <View style={styles.actionsRow}>
+            <TouchableOpacity style={styles.actionButton} onPress={addText}>
+              <Text style={styles.actionButtonText}>➕ Texto</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButtonSecondary}
+              onPress={() => router.push("/(tabs)/sounds" as Href)}
+            >
+              <Text style={styles.actionButtonText}>🔊 Sonido</Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.controls}>
             <Text style={styles.label}>Tamaño: {Math.round(fontSize)}</Text>
@@ -255,6 +289,7 @@ export default function MemeCanvas() {
               minimumTrackTintColor="#2196F3"
               maximumTrackTintColor="#ccc"
             />
+
             <View style={styles.colors}>
               {colors.map((c) => (
                 <TouchableOpacity
@@ -276,24 +311,13 @@ export default function MemeCanvas() {
             disabled={isSharing}
           >
             <Text style={styles.buttonText}>
-              {isSharing ? "Compartiendo..." : "Compartir meme 🚀"}
+              {isSharing
+                ? "Compartiendo..."
+                : audioUri
+                  ? "Compartir meme + audio 🚀"
+                  : "Compartir meme 🚀"}
             </Text>
           </TouchableOpacity>
-
-          {/* 🔥 BANNER - Ahora posicionado más abajo */}
-          <View
-            style={[
-              styles.bannerWrapper,
-              {
-                paddingBottom: insets.bottom,
-                bottom: 150, // Aumenta este valor para mover el banner más abajo (más separado del contenido)
-                zIndex: 1000,
-                elevation: 1000,
-              },
-            ]}
-          >
-            <AdBanner />
-          </View>
         </View>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
@@ -303,26 +327,22 @@ export default function MemeCanvas() {
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: "#f5f5f5" },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-
   container: {
     flex: 1,
     alignItems: "center",
     justifyContent: "flex-start",
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingTop: 12,
+    paddingBottom: 18,
   },
-
-  title: { fontSize: 28, fontWeight: "bold", marginBottom: 15, color: "#333" },
-
+  title: { fontSize: 26, fontWeight: "bold", marginBottom: 12, color: "#333" },
   memeWrapper: {
-    width: width - 80,
+    width: width - 32,
     aspectRatio: 1,
-    borderRadius: 15,
+    borderRadius: 18,
     overflow: "hidden",
     backgroundColor: "#ddd",
-    elevation: 5,
+    elevation: 4,
   },
-
   captureZone: {
     width: "100%",
     height: "100%",
@@ -331,14 +351,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#eee",
   },
-
   image: {
     width: "100%",
     height: "100%",
     resizeMode: "cover",
     position: "absolute",
   },
-
   imageDeleteButton: {
     position: "absolute",
     top: 15,
@@ -351,64 +369,65 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 100,
   },
-
   imageDeleteText: {
     color: "white",
     fontSize: 18,
     fontWeight: "bold",
   },
-
   emptyCanvas: {
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
   },
-
   emptyIcon: { fontSize: 50, marginBottom: 10 },
-
   emptyText: {
     fontSize: 14,
     color: "#888",
     textAlign: "center",
   },
-
-  addTextButton: {
-    marginTop: 15,
-    backgroundColor: "#2ecc71",
-    paddingHorizontal: 25,
-    paddingVertical: 12,
-    borderRadius: 25,
+  actionsRow: {
+    marginTop: 14,
+    flexDirection: "row",
+    width: width - 32,
+    gap: 10,
   },
-
-  addTextButtonText: {
+  actionButton: {
+    flex: 1,
+    backgroundColor: "#2ecc71",
+    paddingVertical: 12,
+    borderRadius: 22,
+  },
+  actionButtonSecondary: {
+    flex: 1,
+    backgroundColor: "#9b59b6",
+    paddingVertical: 12,
+    borderRadius: 22,
+  },
+  actionButtonText: {
     color: "white",
     fontWeight: "bold",
-    fontSize: 16,
+    fontSize: 15,
+    textAlign: "center",
   },
-
   controls: {
     marginTop: 10,
-    width: width - 80,
+    width: width - 32,
     padding: 12,
     backgroundColor: "white",
     borderRadius: 15,
     elevation: 2,
   },
-
   label: {
     fontSize: 14,
     fontWeight: "600",
     color: "#555",
   },
-
   slider: { width: "100%", height: 30 },
-
   colors: {
     flexDirection: "row",
     justifyContent: "space-around",
     marginTop: 15,
   },
-
   color: {
     width: 28,
     height: 28,
@@ -416,37 +435,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#eee",
   },
-
   selectedColor: {
     borderWidth: 3,
     borderColor: "#2196F3",
     transform: [{ scale: 1.1 }],
   },
-
   button: {
-    marginTop: 10,
-    marginBottom: 10,
+    marginTop: 12,
     backgroundColor: "#2196F3",
     paddingHorizontal: 30,
     paddingVertical: 12,
     borderRadius: 25,
   },
-
   buttonDisabled: { backgroundColor: "#cccccc" },
-
   buttonText: {
     color: "white",
     fontWeight: "bold",
     fontSize: 16,
-  },
-
-  bannerWrapper: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#ddd",
-    paddingVertical: 5,
   },
 });

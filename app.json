@@ -9,20 +9,26 @@
     "userInterfaceStyle": "automatic",
 
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Memes graba audio para añadirlo a tus memes al compartirlos en vídeo."
+      }
     },
 
     "android": {
       "package": "com.sigleto.Memes",
       "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
-
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/images/Icono.png"
       },
-
-      "permissions": ["CAMERA", "READ_MEDIA_IMAGES"]
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_AUDIO",
+        "RECORD_AUDIO"
+      ]
     },
 
     "web": {
@@ -32,6 +38,16 @@
 
     "plugins": [
       "expo-router",
+
+      // 👇 NUEVO PLUGIN - COLÓCALO AL PRINCIPIO DEL ARRAY
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "2.0.21"
+          }
+        }
+      ],
 
       [
         "react-native-google-mobile-ads",

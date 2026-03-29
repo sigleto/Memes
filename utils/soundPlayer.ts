@@ -18,6 +18,27 @@ export const playSound = async (file: any) => {
   }
 };
 
+/** Reproduce un clip desde una ruta local (file://) o remota */
+export const playSoundFromUri = async (uri: string) => {
+  try {
+    await Audio.setAudioModeAsync({
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+    });
+    if (sound) {
+      await sound.unloadAsync();
+      sound = null;
+    }
+    const { sound: newSound } = await Audio.Sound.createAsync(
+      { uri },
+      { shouldPlay: true },
+    );
+    sound = newSound;
+  } catch (e) {
+    console.log("Error reproduciendo URI:", e);
+  }
+};
+
 export const stopSound = async () => {
   if (sound) {
     await sound.stopAsync();

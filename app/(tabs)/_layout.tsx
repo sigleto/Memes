@@ -6,35 +6,35 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#2196F3",
-        tabBarInactiveTintColor: "#94a3b8",
+        tabBarActiveTintColor: "#ffffff",
+        tabBarInactiveTintColor: "#d1d5db",
         tabBarStyle: {
           position: "absolute",
-          bottom: 50,
-          left: 15,
-          right: 15,
-          borderRadius: 40,
-          height: 80,
+          bottom: 44,
+          left: 16,
+          right: 16,
+          borderRadius: 28,
+          height: 68,
           backgroundColor: "#5b0707",
-          elevation: 15,
+          elevation: 12,
           shadowColor: "#000",
           shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.1,
-          shadowRadius: 16,
-          paddingBottom: 12,
-          paddingTop: 12,
+          shadowOpacity: 0.12,
+          shadowRadius: 14,
           borderTopWidth: 0,
           borderWidth: 1,
-          borderColor: "rgba(33, 150, 243, 0.15)",
+          borderColor: "rgba(255,255,255,0.08)",
+          paddingBottom: 8,
+          paddingTop: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: "700",
-          marginTop: 6,
-          letterSpacing: 0.5,
+          marginTop: 4,
+          letterSpacing: 0.3,
         },
         tabBarIconStyle: {
-          marginTop: 2,
+          marginTop: 0,
         },
       }}
     >
@@ -43,17 +43,17 @@ export default function TabLayout() {
         options={{
           title: "Editor",
           tabBarIcon: ({ color }) => (
-            <FontAwesome name="paint-brush" size={26} color={color} />
+            <FontAwesome name="paint-brush" size={23} color={color} />
           ),
         }}
       />
 
       <Tabs.Screen
-        name="upload" // Nueva pestaña para subir imágenes
+        name="upload"
         options={{
           title: "Subir",
           tabBarIcon: ({ color }) => (
-            <FontAwesome name="upload" size={26} color={color} />
+            <FontAwesome name="upload" size={23} color={color} />
           ),
         }}
       />
@@ -63,7 +63,17 @@ export default function TabLayout() {
         options={{
           title: "Stickers",
           tabBarIcon: ({ color }) => (
-            <FontAwesome name="smile-o" size={26} color={color} />
+            <FontAwesome name="smile-o" size={23} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="sounds"
+        options={{
+          title: "Sonido",
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="volume-up" size={23} color={color} />
           ),
         }}
       />
@@ -73,7 +83,7 @@ export default function TabLayout() {
         options={{
           title: "Plantillas",
           tabBarIcon: ({ color }) => (
-            <FontAwesome name="clone" size={26} color={color} />
+            <FontAwesome name="clone" size={23} color={color} />
           ),
         }}
       />

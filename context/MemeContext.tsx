@@ -19,6 +19,10 @@ type MemeContextType = {
   stickers: Sticker[];
   addSticker: (sticker: { image: string | any; isGif?: boolean }) => void;
   removeSticker: (id: number) => void;
+
+  /** Ruta local (file://) del audio del meme; se combina en vídeo MP4 al compartir */
+  audioUri: string | null;
+  setAudioUri: (uri: string | null) => void;
 };
 
 const MemeContext = createContext<MemeContextType | null>(null);
@@ -28,6 +32,7 @@ export const MemeProvider = ({ children }: any) => {
   const [topText, setTopText] = useState("");
   const [bottomText, setBottomText] = useState("");
   const [stickers, setStickers] = useState<Sticker[]>([]);
+  const [audioUri, setAudioUriState] = useState<string | null>(null);
 
   const addSticker = (sticker: { image: string | any; isGif?: boolean }) => {
     setStickers((prev) => {
@@ -48,11 +53,14 @@ export const MemeProvider = ({ children }: any) => {
 
   const clearStickers = () => setStickers([]);
 
+  const setAudioUri = (uri: string | null) => setAudioUriState(uri);
+
   // 🔹 Acepta null para compatibilidad TypeScript
   const selectTemplate = (img: string | null) => {
     setImage(img);
     if (img !== null) {
       clearStickers();
+      setAudioUriState(null);
     }
   };
 
@@ -69,6 +77,8 @@ export const MemeProvider = ({ children }: any) => {
         stickers,
         addSticker,
         removeSticker,
+        audioUri,
+        setAudioUri,
       }}
     >
       {children}
