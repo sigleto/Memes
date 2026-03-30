@@ -249,8 +249,9 @@ export default function SoundsScreen() {
           },
         ]}
       >
-        <AdBanner />
+          <AdBanner />
       </View>
+    
     </View>
   );
 }
@@ -367,5 +368,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#ddd",
     paddingVertical: 5,
+    marginBottom: -40
   },
 });

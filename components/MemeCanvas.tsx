@@ -1,6 +1,7 @@
 import { useMeme } from "@/context/MemeContext";
-import { shareImageAndAudio } from "@/utils/shareMemeAssets";
+import { shareImageAndAudio } from "@/utils/shareMemeAssets"; // Importante: recuperado
 import { Anton_400Regular, useFonts } from "@expo-google-fonts/anton";
+import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import Slider from "@react-native-community/slider";
 import * as FileSystem from "expo-file-system/legacy";
 import { router, type Href } from "expo-router";
@@ -11,10 +12,10 @@ import {
   Alert,
   Animated,
   Dimensions,
-  Easing,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -22,6 +23,7 @@ import {
   View,
 } from "react-native";
 import { captureRef } from "react-native-view-shot";
+
 import { loadInterstitial, showInterstitial } from "./AdInterstitial";
 import DraggableSticker from "./DraggableSticker";
 import DraggableText from "./DraggableText";
@@ -33,291 +35,164 @@ export default function MemeCanvas() {
   const { image, setImage, stickers, removeSticker, audioUri } = useMeme();
 
   const [texts, setTexts] = useState<{ id: number; text: string }[]>([]);
-  const [fontSize, setFontSize] = useState(35);
-  const [textColor, setTextColor] = useState("white");
-  const [selectedStickerId, setSelectedStickerId] = useState<number | null>(
-    null,
-  );
+  const [fontSize, setFontSize] = useState(45);
+  const [textColor, setTextColor] = useState("#fff");
+  const [selectedStickerId, setSelectedStickerId] = useState<number | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isEditingText, setIsEditingText] = useState(false);
 
   const viewRef = useRef<View>(null);
+  const bottomSheetRef = useRef<BottomSheet>(null);
   const imageScale = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  const colors = ["white", "#f1c40f", "#e74c3c", "#2ecc71", "#9b59b6", "black"];
+  const neonColors = ["#fff", "#ffeb3b", "#ff5722", "#4caf50", "#9c27b0", "#00bcd4"];
 
   useEffect(() => {
     loadInterstitial();
+    const lId = pulseAnim.addListener(() => {}); 
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.1, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
+      ])
+    ).start();
+    return () => pulseAnim.removeListener(lId);
   }, []);
 
-  useEffect(() => {
-    if (!image) return;
+  if (!fontsLoaded) return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#ffeb3b" /></View>;
 
-    imageScale.setValue(0.9);
-
-    Animated.sequence([
-      Animated.timing(imageScale, {
-        toValue: 1.05,
-        duration: 140,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }),
-      Animated.timing(imageScale, {
-        toValue: 1,
-        duration: 120,
-        easing: Easing.in(Easing.ease),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [image, imageScale]);
-
-  if (!fontsLoaded) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2196F3" />
-      </View>
-    );
-  }
-
-  const addText = () => {
-    setTexts((prev) => [...prev, { id: Date.now(), text: "" }]);
+  const handleMenuAction = (action: () => void) => {
+    bottomSheetRef.current?.close();
+    setTimeout(action, 300);
   };
 
-  const updateText = (id: number, newText: string) => {
-    setTexts((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, text: newText } : t)),
-    );
-  };
-
-  const removeText = (id: number) => {
-    setTexts((prev) => prev.filter((t) => t.id !== id));
-  };
-
-  const removeBackgroundImage = () => {
-    Alert.alert("Eliminar imagen", "¿Eliminar la imagen de fondo?", [
-      { text: "Cancelar", style: "cancel" },
-      { text: "Eliminar", style: "destructive", onPress: () => setImage(null) },
-    ]);
-  };
+  const addText = () => setTexts((prev) => [...prev, { id: Date.now(), text: "" }]);
 
   const shareMeme = async () => {
     try {
       if (!image && stickers.length === 0 && texts.length === 0) {
-        Alert.alert("Error", "No hay nada para compartir");
+        Alert.alert("😅", "¡Añade algo primero!");
         return;
       }
 
       showInterstitial();
       setIsSharing(true);
 
-      const onlyGifSticker =
-        stickers.length === 1 &&
-        stickers[0].isGif &&
-        !image &&
-        texts.length === 0;
+      // Lógica de detección de GIF único (para que no se mande como imagen fija)
+      const onlyGifSticker = stickers.length === 1 && stickers[0].isGif && !image && texts.length === 0;
 
       if (audioUri) {
+        // CASO 1: Meme con Audio
+        let assetUri = "";
         if (onlyGifSticker) {
-          const fileName = `sticker-${stickers[0].id}.gif`;
-          const fileUri = FileSystem.cacheDirectory + fileName;
-          await FileSystem.downloadAsync(stickers[0].image, fileUri);
-          await shareImageAndAudio(
-            fileUri,
-            audioUri,
-            "Compartir meme con imagen y audio",
-          );
+          assetUri = FileSystem.cacheDirectory + `temp_${Date.now()}.gif`;
+          await FileSystem.downloadAsync(stickers[0].image, assetUri);
         } else {
-          if (!viewRef.current) {
-            Alert.alert("Error", "No se pudo capturar la imagen");
-            return;
-          }
-
           setIsCapturing(true);
-          setSelectedStickerId(null);
-          await new Promise((resolve) => setTimeout(resolve, 150));
-
-          const pngUri = await captureRef(viewRef, {
-            format: "png",
-            quality: 1,
-            result: "tmpfile",
-          });
-
+          await new Promise(r => setTimeout(r, 200));
+          assetUri = await captureRef(viewRef, { format: "png", quality: 0.8 });
           setIsCapturing(false);
-          await shareImageAndAudio(
-            pngUri,
-            audioUri,
-            "Compartir meme con imagen y audio",
-          );
         }
-        return;
-      }
-
-      if (onlyGifSticker) {
-        const fileName = `sticker-${stickers[0].id}.gif`;
-        const fileUri = FileSystem.cacheDirectory + fileName;
+        await shareImageAndAudio(assetUri, audioUri, "Meme viral con sonido");
+      } else if (onlyGifSticker) {
+        // CASO 2: Solo un GIF (sin audio)
+        const fileUri = FileSystem.cacheDirectory + `temp_${Date.now()}.gif`;
         await FileSystem.downloadAsync(stickers[0].image, fileUri);
-
-        await Sharing.shareAsync(fileUri, {
-          mimeType: "image/gif",
-          dialogTitle: "Compartir GIF",
-          UTI: "com.compuserve.gif",
-        });
+        await Sharing.shareAsync(fileUri, { mimeType: "image/gif", UTI: "com.compuserve.gif" });
       } else {
-        if (!viewRef.current) {
-          Alert.alert("Error", "No se pudo capturar la imagen");
-          return;
-        }
-
+        // CASO 3: Imagen estática (Canvas compuesto)
         setIsCapturing(true);
-        setSelectedStickerId(null);
-        await new Promise((resolve) => setTimeout(resolve, 150));
-
-        const uri = await captureRef(viewRef, {
-          format: "png",
-          quality: 1,
-          result: "tmpfile",
-        });
-
+        await new Promise(r => setTimeout(r, 200));
+        const uri = await captureRef(viewRef, { format: "png", quality: 0.8 });
         setIsCapturing(false);
-
-        await Sharing.shareAsync(uri, {
-          mimeType: "image/png",
-          dialogTitle: "Compartir meme",
-          UTI: "public.png",
-        });
+        await Sharing.shareAsync(uri);
       }
-    } catch (error) {
-      console.log("Error al compartir:", error);
-      setIsCapturing(false);
-      Alert.alert("Error", "No se pudo generar o compartir el meme.");
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Error", "No se pudo compartir");
     } finally {
       setIsSharing(false);
+      setIsCapturing(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.mainContainer}
-    >
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.mainContainer}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.container}>
-          <Text style={styles.title}>Meme Maker</Text>
+          
+          <View style={styles.header}>
+            <Text style={styles.title}>😂 MEME FACTORY</Text>
+            <Text style={styles.subtitle}>{audioUri ? "🎵 Con sonido listo" : "¡Hazlo viral!"}</Text>
+          </View>
 
-          <View style={styles.memeWrapper}>
-            <View ref={viewRef} collapsable={false} style={styles.captureZone}>
+          <View style={styles.canvasContainer}>
+            <View ref={viewRef} collapsable={false} style={styles.canvas}>
               {!image ? (
-                <View style={styles.emptyCanvas}>
-                  <Text style={styles.emptyIcon}>🎨</Text>
-                  <Text style={styles.emptyText}>
-                    Usa el menú inferior para añadir imagen
-                  </Text>
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyEmoji}>🚀</Text>
+                  <Text style={styles.emptyTitle}>Lienzo Vacío</Text>
                 </View>
               ) : (
                 <>
-                  <Animated.Image
-                    source={{ uri: image }}
-                    style={[
-                      styles.image,
-                      { transform: [{ scale: imageScale }] },
-                    ]}
-                  />
-
+                  <Animated.Image source={{ uri: image }} style={styles.image} />
                   {!isCapturing && (
-                    <TouchableOpacity
-                      style={styles.imageDeleteButton}
-                      onPress={removeBackgroundImage}
-                    >
-                      <Text style={styles.imageDeleteText}>✕</Text>
+                    <TouchableOpacity style={styles.deleteBtn} onPress={() => setImage(null)}>
+                      <Text style={styles.deleteText}>✕</Text>
                     </TouchableOpacity>
                   )}
                 </>
               )}
 
-              {stickers.map((sticker) => (
-                <DraggableSticker
-                  key={sticker.id}
-                  source={sticker.image}
-                  isGif={sticker.isGif}
-                  isSelected={selectedStickerId === sticker.id}
-                  onSelect={() => setSelectedStickerId(sticker.id)}
-                  onRemove={() => removeSticker(sticker.id)}
-                  isCapturing={isCapturing}
-                />
+              {stickers.map((s) => (
+                <DraggableSticker key={s.id} source={s.image} isGif={s.isGif} isSelected={selectedStickerId === s.id}
+                  onSelect={() => setSelectedStickerId(s.id)} onRemove={() => removeSticker(s.id)} isCapturing={isCapturing} />
               ))}
-
               {texts.map((t) => (
-                <DraggableText
-                  key={t.id}
-                  text={t.text}
-                  onChangeText={(txt: string) => updateText(t.id, txt)}
-                  onRemove={() => removeText(t.id)}
-                  fontSize={fontSize}
-                  color={textColor}
-                  isCapturing={isCapturing}
-                  autoFocus={
-                    texts.length > 0 &&
-                    t.id === texts[texts.length - 1].id &&
-                    t.text === ""
-                  }
-                />
+                <DraggableText key={t.id} text={t.text} onChangeText={(txt) => setTexts(prev => prev.map(i => i.id === t.id ? {...i, text: txt} : i))}
+                  onRemove={() => setTexts(prev => prev.filter(i => i.id !== t.id))} fontSize={fontSize} color={textColor}
+                  isCapturing={isCapturing} onFocus={() => setIsEditingText(true)} onBlur={() => setIsEditingText(false)} />
               ))}
             </View>
           </View>
 
-          <View style={styles.actionsRow}>
-            <TouchableOpacity style={styles.actionButton} onPress={addText}>
-              <Text style={styles.actionButtonText}>➕ Texto</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionButtonSecondary}
-              onPress={() => router.push("/(tabs)/sounds" as Href)}
-            >
-              <Text style={styles.actionButtonText}>🔊 Sonido</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.controls}>
-            <Text style={styles.label}>Tamaño: {Math.round(fontSize)}</Text>
-            <Slider
-              style={styles.slider}
-              minimumValue={15}
-              maximumValue={80}
-              value={fontSize}
-              onValueChange={setFontSize}
-              minimumTrackTintColor="#2196F3"
-              maximumTrackTintColor="#ccc"
-            />
-
-            <View style={styles.colors}>
-              {colors.map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  onPress={() => setTextColor(c)}
-                  style={[
-                    styles.color,
-                    { backgroundColor: c },
-                    textColor === c && styles.selectedColor,
-                  ]}
-                />
-              ))}
+          {isEditingText && (
+            <View style={styles.controlsBar}>
+              <Slider minimumValue={20} maximumValue={100} value={fontSize} onValueChange={setFontSize} minimumTrackTintColor="#ffeb3b" style={styles.slider} />
+              <ScrollView horizontal style={styles.colorsRow}>
+                {neonColors.map(c => <TouchableOpacity key={c} onPress={() => setTextColor(c)} style={[styles.colorBtn, { backgroundColor: c }, textColor === c && styles.colorActive]} />)}
+              </ScrollView>
             </View>
-          </View>
+          )}
 
-          <TouchableOpacity
-            style={[styles.button, isSharing && styles.buttonDisabled]}
-            onPress={shareMeme}
-            disabled={isSharing}
-          >
-            <Text style={styles.buttonText}>
-              {isSharing
-                ? "Compartiendo..."
-                : audioUri
-                  ? "Compartir meme + audio 🚀"
-                  : "Compartir meme 🚀"}
-            </Text>
+          <TouchableOpacity style={styles.fabMain} onPress={() => bottomSheetRef.current?.snapToIndex(0)}>
+            <Animated.Text style={[styles.fabIcon, { transform: [{ scale: pulseAnim }] }]}>🎨</Animated.Text>
           </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.fabShare, isSharing && { opacity: 0.5 }]} onPress={shareMeme} disabled={isSharing}>
+            <Text style={styles.shareIcon}>{isSharing ? "⏳" : "🚀"}</Text>
+          </TouchableOpacity>
+
+          <BottomSheet ref={bottomSheetRef} index={-1} snapPoints={["50%"]} enablePanDownToClose>
+            <BottomSheetView style={styles.sheet}>
+              <ScrollView style={styles.menuGrid}>
+                <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuAction(addText)}>
+                  <Text style={styles.menuEmoji}>📝</Text><Text style={styles.menuLabel}>Añadir Texto</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuAction(() => router.push("/(tabs)/sounds" as Href))}>
+                  <Text style={styles.menuEmoji}>🔊</Text><Text style={styles.menuLabel}>Cambiar Sonido</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuAction(() => router.push("/(tabs)/stickers" as Href))}>
+                  <Text style={styles.menuEmoji}>😂</Text><Text style={styles.menuLabel}>Stickers</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuAction(() => router.push("/(tabs)/templates" as Href))}>
+                  <Text style={styles.menuEmoji}>🎬</Text><Text style={styles.menuLabel}>Plantillas</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </BottomSheetView>
+          </BottomSheet>
         </View>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
@@ -325,132 +200,32 @@ export default function MemeCanvas() {
 }
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, backgroundColor: "#f5f5f5" },
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "flex-start",
-    paddingTop: 12,
-    paddingBottom: 18,
-  },
-  title: { fontSize: 26, fontWeight: "bold", marginBottom: 12, color: "#333" },
-  memeWrapper: {
-    width: width - 32,
-    aspectRatio: 1,
-    borderRadius: 18,
-    overflow: "hidden",
-    backgroundColor: "#ddd",
-    elevation: 4,
-  },
-  captureZone: {
-    width: "100%",
-    height: "100%",
-    position: "relative",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#eee",
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-    position: "absolute",
-  },
-  imageDeleteButton: {
-    position: "absolute",
-    top: 15,
-    right: 15,
-    backgroundColor: "rgba(231, 76, 60, 0.9)",
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 100,
-  },
-  imageDeleteText: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  emptyCanvas: {
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  emptyIcon: { fontSize: 50, marginBottom: 10 },
-  emptyText: {
-    fontSize: 14,
-    color: "#888",
-    textAlign: "center",
-  },
-  actionsRow: {
-    marginTop: 14,
-    flexDirection: "row",
-    width: width - 32,
-    gap: 10,
-  },
-  actionButton: {
-    flex: 1,
-    backgroundColor: "#2ecc71",
-    paddingVertical: 12,
-    borderRadius: 22,
-  },
-  actionButtonSecondary: {
-    flex: 1,
-    backgroundColor: "#9b59b6",
-    paddingVertical: 12,
-    borderRadius: 22,
-  },
-  actionButtonText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 15,
-    textAlign: "center",
-  },
-  controls: {
-    marginTop: 10,
-    width: width - 32,
-    padding: 12,
-    backgroundColor: "white",
-    borderRadius: 15,
-    elevation: 2,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#555",
-  },
-  slider: { width: "100%", height: 30 },
-  colors: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginTop: 15,
-  },
-  color: {
-    width: 28,
-    height: 28,
-    borderRadius: 17.5,
-    borderWidth: 1,
-    borderColor: "#eee",
-  },
-  selectedColor: {
-    borderWidth: 3,
-    borderColor: "#2196F3",
-    transform: [{ scale: 1.1 }],
-  },
-  button: {
-    marginTop: 12,
-    backgroundColor: "#2196F3",
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    borderRadius: 25,
-  },
-  buttonDisabled: { backgroundColor: "#cccccc" },
-  buttonText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
+  mainContainer: { flex: 1, backgroundColor: "#0a0a0a" },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0a0a0a" },
+  container: { flex: 1, paddingTop: 50, paddingHorizontal: 16 },
+  header: { alignItems: "center", marginBottom: 20 },
+  title: { fontSize: 28, fontWeight: "900", color: "#fff" },
+  subtitle: { fontSize: 14, color: "#aaa" },
+  canvasContainer: { width: width - 32, aspectRatio: 1, borderRadius: 20, overflow: "hidden", backgroundColor: "#1a1a1a", borderWidth: 1, borderColor: "#333" },
+  canvas: { flex: 1, backgroundColor: "#222", justifyContent: "center", alignItems: "center" },
+  image: { width: "100%", height: "100%", position: "absolute" },
+  emptyState: { alignItems: "center" },
+  emptyEmoji: { fontSize: 50 },
+  emptyTitle: { color: "#555", fontWeight: "bold" },
+  deleteBtn: { position: "absolute", top: 10, right: 10, backgroundColor: "rgba(255,0,0,0.6)", padding: 8, borderRadius: 20 },
+  deleteText: { color: "#fff", fontWeight: "bold" },
+  controlsBar: { position: "absolute", bottom: 160, left: 20, right: 20, backgroundColor: "rgba(0,0,0,0.9)", borderRadius: 20, padding: 15, borderWidth: 1, borderColor: "#ffeb3b" },
+  slider: { width: "100%", height: 40 },
+  colorsRow: { flexDirection: "row", marginTop: 10 },
+  colorBtn: { width: 30, height: 30, borderRadius: 15, marginRight: 10, borderWidth: 1, borderColor: "#444" },
+  colorActive: { borderColor: "#fff", borderWidth: 2 },
+  fabMain: { position: "absolute", bottom: 50, right: 30, width: 70, height: 70, borderRadius: 35, backgroundColor: "#ffeb3b", justifyContent: "center", alignItems: "center", elevation: 10 },
+  fabIcon: { fontSize: 30 },
+  fabShare: { position: "absolute", bottom: 50, left: 30, width: 70, height: 70, borderRadius: 35, backgroundColor: "#00e676", justifyContent: "center", alignItems: "center", elevation: 10 },
+  shareIcon: { fontSize: 30 },
+  sheet: { flex: 1, backgroundColor: "#111" },
+  menuGrid: { padding: 20 },
+  menuItem: { flexDirection: "row", alignItems: "center", backgroundColor: "#1a1a1a", padding: 15, borderRadius: 15, marginBottom: 10 },
+  menuEmoji: { fontSize: 24, marginRight: 15 },
+  menuLabel: { fontSize: 16, color: "#fff", fontWeight: "bold" },
 });

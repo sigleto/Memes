@@ -17,6 +17,8 @@ interface DraggableTextProps {
   color: string;
   autoFocus?: boolean;
   isCapturing?: boolean; // 🔥 NUEVO
+   onFocus?: () => void;
+  onBlur?: () => void;
 }
 
 export default function DraggableText({

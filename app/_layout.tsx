@@ -1,10 +1,16 @@
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { Slot } from "expo-router";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { MemeProvider } from "../context/MemeContext";
 
 export default function RootLayout() {
   return (
-    <MemeProvider>
-      <Slot />
-    </MemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <BottomSheetModalProvider>
+        <MemeProvider>
+          <Slot />
+        </MemeProvider>
+      </BottomSheetModalProvider>
+    </GestureHandlerRootView>
   );
 }
