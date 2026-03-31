@@ -33,6 +33,8 @@ export const LIBRARY_SOUNDS: LibrarySound[] = [
   { id: "omg2", label: "Oh my God 2", file: "OhMyGod2.mp3" },
   { id: "pedo1", label: "Pedo 1", file: "Pedo1.mp3" },
   { id: "pedo2", label: "Pedo 2", file: "Pedo2.mp3" },
+  { id: "risas", label: "Risas", file: "Risas.mp3" },
+  { id: "suspense", label: "Suspense", file: "Suspense.mp3" },
 ];
 
 export function getLibrarySoundUrl(sound: LibrarySound): string {

@@ -1,8 +1,5 @@
 import AdBanner from "@/components/AdBanner";
-import {
-  getLibrarySoundUrl,
-  LIBRARY_SOUNDS,
-} from "@/constants/firebaseSounds";
+import { getLibrarySoundUrl, LIBRARY_SOUNDS } from "@/constants/firebaseSounds";
 import { useMeme } from "@/context/MemeContext";
 import { playSoundFromUri, stopSound } from "@/utils/soundPlayer";
 import { Audio } from "expo-av";
@@ -74,7 +71,9 @@ export default function SoundsScreen() {
       });
 
       const rec = new Audio.Recording();
-      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await rec.prepareToRecordAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY,
+      );
       await rec.startAsync();
       recordingRef.current = rec;
       setIsRecording(true);
@@ -82,7 +81,10 @@ export default function SoundsScreen() {
       if (recordTimer.current) clearTimeout(recordTimer.current);
       recordTimer.current = setTimeout(async () => {
         await stopRecordingInternal();
-        Alert.alert("Límite", "Se alcanzó el máximo de 2 minutos de grabación.");
+        Alert.alert(
+          "Límite",
+          "Se alcanzó el máximo de 2 minutos de grabación.",
+        );
       }, 120_000);
     } catch (e) {
       console.log(e);
@@ -154,14 +156,24 @@ export default function SoundsScreen() {
               <TouchableOpacity
                 key={s.id}
                 style={[styles.soundChip, selected && styles.soundChipSelected]}
-                onPress={() => {
-                  setAudioUri(url);
+                onPress={async () => {
+                  try {
+                    await playSoundFromUri(url); // 👈 preview
+                  } catch (e) {
+                    console.log(e);
+                  }
+                }}
+                onLongPress={() => {
+                  setAudioUri(url); // 👈 seleccionar
                   router.back();
                 }}
                 disabled={loading || isRecording}
               >
                 <Text
-                  style={[styles.soundChipText, selected && styles.soundChipTextSelected]}
+                  style={[
+                    styles.soundChipText,
+                    selected && styles.soundChipTextSelected,
+                  ]}
                   numberOfLines={1}
                 >
                   {s.label}
@@ -228,7 +240,10 @@ export default function SoundsScreen() {
               <TouchableOpacity style={styles.smallBtn} onPress={previewAudio}>
                 <Text style={styles.smallBtnText}>▶ Escuchar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.smallBtnDanger} onPress={clearAudio}>
+              <TouchableOpacity
+                style={styles.smallBtnDanger}
+                onPress={clearAudio}
+              >
                 <Text style={styles.smallBtnText}>Quitar</Text>
               </TouchableOpacity>
             </View>
@@ -249,9 +264,8 @@ export default function SoundsScreen() {
           },
         ]}
       >
-          <AdBanner />
+        <AdBanner />
       </View>
-    
     </View>
   );
 }
@@ -322,7 +336,11 @@ const styles = StyleSheet.create({
   },
   disabledButton: { opacity: 0.5 },
   recordButton: { borderWidth: 1, borderColor: "rgba(33, 150, 243, 0.35)" },
-  stopButton: { backgroundColor: "#ffeaea", borderWidth: 1, borderColor: "#e74c3c" },
+  stopButton: {
+    backgroundColor: "#ffeaea",
+    borderWidth: 1,
+    borderColor: "#e74c3c",
+  },
   iconContainer: {
     width: 48,
     height: 48,
@@ -342,7 +360,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#e8f5e9",
     borderRadius: 12,
   },
-  statusText: { fontSize: 15, fontWeight: "600", color: "#2e7d32", marginBottom: 12 },
+  statusText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#2e7d32",
+    marginBottom: 12,
+  },
   row: { flexDirection: "row", gap: 12 },
   smallBtn: {
     flex: 1,
@@ -359,7 +382,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   smallBtnText: { color: "#fff", fontWeight: "700" },
-  emptyNote: { marginTop: 12, fontSize: 14, color: "#999", textAlign: "center" },
+  emptyNote: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#999",
+    textAlign: "center",
+  },
   bannerWrapper: {
     position: "absolute",
     left: 0,
@@ -368,6 +396,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#ddd",
     paddingVertical: 5,
-    marginBottom: -40
+    marginBottom: -40,
   },
 });

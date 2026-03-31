@@ -16,9 +16,9 @@ interface DraggableTextProps {
   fontSize: number;
   color: string;
   autoFocus?: boolean;
-  isCapturing?: boolean; // 🔥 NUEVO
-   onFocus?: () => void;
-  onBlur?: () => void;
+  isCapturing?: boolean;
+  onFocus?: () => void; // ✅ Mantener
+  onBlur?: () => void; // ✅ Mantener
 }
 
 export default function DraggableText({
@@ -28,7 +28,9 @@ export default function DraggableText({
   fontSize,
   color,
   autoFocus = false,
-  isCapturing = false, // 🔥 NUEVO
+  isCapturing = false,
+  onFocus, // ✅ Recibir la prop
+  onBlur, // ✅ Recibir la prop
 }: DraggableTextProps) {
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const [isEditing, setIsEditing] = useState(false);
@@ -43,13 +45,8 @@ export default function DraggableText({
     }
   }, [autoFocus]);
 
-  // 🔥 Botón borrar SOLO si:
-  // - está editando
-  // - hay texto
-  // - NO estamos capturando
   const showDelete = isEditing && text.length > 0 && !isCapturing;
 
-  // PanResponder solo activo si NO estamos editando
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => !isEditing,
@@ -63,15 +60,14 @@ export default function DraggableText({
         pan.setValue({ x: 0, y: 0 });
       },
 
-      onPanResponderMove: Animated.event(
-        [null, { dx: pan.x, dy: pan.y }],
-        { useNativeDriver: false }
-      ),
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+        useNativeDriver: false,
+      }),
 
       onPanResponderRelease: () => {
         pan.flattenOffset();
       },
-    })
+    }),
   ).current;
 
   return (
@@ -87,16 +83,19 @@ export default function DraggableText({
           ref={inputRef}
           value={text}
           onChangeText={onChangeText}
-          style={[
-            styles.text,
-            { fontSize, color, fontFamily: "MemeFont" },
-          ]}
+          style={[styles.text, { fontSize, color, fontFamily: "MemeFont" }]}
           placeholder={text.length === 0 ? "Escribe aquí..." : ""}
           placeholderTextColor="rgba(255,255,255,0.5)"
           multiline
           textAlign="center"
-          onFocus={() => setIsEditing(true)}
-          onBlur={() => setIsEditing(false)}
+          onFocus={() => {
+            setIsEditing(true);
+            onFocus?.(); // ✅ Llamar al callback del padre
+          }}
+          onBlur={() => {
+            setIsEditing(false);
+            onBlur?.(); // ✅ Llamar al callback del padre
+          }}
           onTouchStart={(e) => e.stopPropagation()}
         />
 
