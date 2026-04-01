@@ -147,6 +147,8 @@ export default function MemeCanvas() {
       setIsCapturing(false);
     }
   };
+  console.log("Sticker:", DraggableSticker);
+console.log("Text:", DraggableText);
 
   return (
     <KeyboardAvoidingView
